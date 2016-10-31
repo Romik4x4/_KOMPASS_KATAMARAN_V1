@@ -25,10 +25,10 @@ void setup() {
 
 void loop() {
   
-  digitalWrite(23, HIGH);   // turn the LED on (HIGH is the voltage level)
-  delay(500);              // wait for a second
-  digitalWrite(23, LOW);    // turn the LED off by making the voltage LOW
-  delay(500);              // wait for a second
+  digitalWrite(23, HIGH);   
+  delay(500);              
+  digitalWrite(23, LOW);    
+  delay(500);             
   
   display.clearDisplay();
   display.setTextSize(2);
