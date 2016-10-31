@@ -1,37 +1,46 @@
-/*
-  Blink
-  Turns on an LED on for one second, then off for one second, repeatedly.
+// ***************************************
+// Arduino 1.0.6 @ 31.10.2016
+// ***************************************
 
-  Most Arduinos have an on-board LED you can control. On the Uno and
-  Leonardo, it is attached to digital pin 13. If you're unsure what
-  pin the on-board LED is connected to on your Arduino model, check
-  the documentation at http://arduino.cc
+#include <SPI.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
 
-  This example code is in the public domain.
+#define OLED_MOSI   5
+#define OLED_CLK    7
+#define OLED_DC     1
+#define OLED_CS     2
+#define OLED_RESET  0
 
-  modified 8 May 2014
-  by Scott Fitzgerald
- */
+Adafruit_SSD1306 display(OLED_MOSI, OLED_CLK, OLED_DC, OLED_RESET, OLED_CS);
 
-
-// the setup function runs once when you press reset or power the board
 void setup() {
-  // initialize digital pin 13 as an output.
+
   pinMode(23, OUTPUT);
-  Serial1.begin(4800);
-  Serial.begin(9600);
+  Serial1.begin(4800);  // GPS
+  display.begin();
+ 
 }
 
-// the loop function runs over and over again forever
 void loop() {
- 
- // while(Serial1.available()) {
-  //  char a = Serial1.read();
-  //  Serial.print(a);
- // }
   
   digitalWrite(23, HIGH);   // turn the LED on (HIGH is the voltage level)
-  delay(1000);              // wait for a second
+  delay(500);              // wait for a second
   digitalWrite(23, LOW);    // turn the LED off by making the voltage LOW
-  delay(1000);              // wait for a second
+  delay(500);              // wait for a second
+  
+  display.clearDisplay();
+  display.setTextSize(2);
+  display.setTextColor(WHITE);
+  display.setCursor(0,0);
+  display.println("12:15 21/10");
+  display.setTextColor(WHITE); // 'inverted' text
+  display.println(3.141592);
+  display.setTextSize(2);
+  display.setTextColor(WHITE);
+  display.print("0x"); display.println(320, HEX);
+  display.display();
+  
+  
 }
