@@ -27,6 +27,11 @@
 #define OLED_DC     29
 #define OLED_RESET  28
 
+#define FIVE_MINUT 300000
+#define TWO_DAYS 172800
+#define DEBUG 0
+#define LED 23
+
 unsigned long BAR_EEPROM_POS = 0;
 
 #define EEPROM_ADDRESS      (0x50) // 24LC512
@@ -70,12 +75,7 @@ BMP085 bmp = BMP085();  // BMP085
 
 long Temperature = 0, Pressure = 0, Altitude = 0;
 
-#define FIVE_MINUT 300000
-#define TWO_DAYS 172800
-
-#define DEBUG 0
-
-#define LED 23
+boolean First = true;  // После старта
 
 // ====================== Setup ================================================
 
@@ -102,6 +102,14 @@ void setup() {
   
     display.clearDisplay();
     display.display();
+    
+    // Для стартовых значений
+    
+     bmp.getTemperature(&Temperature);  // Температура
+     bmp.getPressure(&Pressure);        // Давление
+     bmp.getAltitude(&Altitude);        // Высота 
+     
+     First = true;
 
 }
 
@@ -173,7 +181,7 @@ void Display_Test() {
   //  virtual void drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t color);
   //  virtual void drawFastHLine(int16_t x, int16_t y, int16_t w, uint16_t color);
 
-  ShowBMP085();
+  ShowBMP085(First);
   display.display();
 
 }
@@ -287,16 +295,18 @@ void Save_Bar_Data( void ) {
 
 // ---------------- Barometer Graphics ------------------------
 
-void ShowBMP085() {
+void ShowBMP085(boolean fs) {
 
-  int x;
+  int H;
 
    display.drawFastVLine(0,20,43, WHITE);
    display.drawFastHLine(0,63,127, WHITE);
     
-  if (currentMillis - barPreviousInterval > FIVE_MINUT/2) {  
-    barPreviousInterval = currentMillis;      
+  if ((currentMillis - barPreviousInterval > FIVE_MINUT/2) || fs == true ) {  
+       barPreviousInterval = currentMillis;      
 
+    First = false;
+    
     DateTime now = DateTime (rtc.getYear(), 
     rtc.getMonth(), 
     rtc.getDay(),
@@ -314,7 +324,7 @@ void ShowBMP085() {
 
     for(byte j = 0;j < 96; j++) {           
 
-      byte* pp = (byte*)(void*)&bmp085_data_out; 
+      byte* pp = (byte*)(void*)&bmp085_data; 
 
       for (unsigned int i = 0; i < sizeof(bmp085_data); i++)
         *pp++ = eeprom.readByte(BAR_EEPROM_POS++); 
@@ -324,13 +334,6 @@ void ShowBMP085() {
         barArray[j] = bmp085_data.Press; 
         bar_data.push(bmp085_data.Press);
         
-        Serial.print(bmp085_data.Press);
-        Serial.print(" ");
-        Serial.print(bmp085_data.Temp);
-        Serial.print(" ");        
-        Serial.println(bmp085_data.unix_time);
-        Serial.println("----");        
-
       } 
       else {
 
@@ -339,31 +342,34 @@ void ShowBMP085() {
       }
       
     }
+    
+    if (DEBUG) {
+     for(byte j=0;j<96;j++) Serial.println(barArray[j]);
+     Serial.println("===============");
+    }
 
     BAR_EEPROM_POS = 0;
+    
+     // barArray[0] = Pressure/133.3;  // Текущие значения  
+     // bar_data.push(Pressure/133.3);
 
-    int y_pres = 127;
+    int x_pos = 127;
 
     for(byte j=0;j<96;j++) {
 
-      if (j != 0) {
-        x = map(barArray[current_position],bar_data.minimum()-1,bar_data.maximum()+1,43,1);
-      } 
-      else {
-        x = map(Pressure,bar_data.minimum()-1,bar_data.maximum()+1,43,1); // Текущие значение
-      }
+      H = map(barArray[current_position],bar_data.minimum(),bar_data.maximum(),62,20);
 
-      display.drawLine(0,y_pres,42,y_pres, BLACK); // Стереть линию
+      display.drawLine(x_pos,20,x_pos,62, BLACK); // Стереть линию
 
       if (barArray[current_position] != 0.0) {     
-       display.drawLine(x,y_pres,42,y_pres, WHITE); // Нарисовать данные    
+       display.drawLine(x_pos,62,x_pos,H,WHITE); // Нарисовать данные    
       }
 
       if (current_position == 0) current_position = 96;
 
       current_position--; 
 
-      y_pres--;
+      x_pos--;
 
     } 
 
