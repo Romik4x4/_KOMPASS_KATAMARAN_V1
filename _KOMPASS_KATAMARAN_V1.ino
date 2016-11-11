@@ -23,8 +23,8 @@
 
 #define OLED_MOSI   5
 #define OLED_CLK    7
-#define OLED_CS     2
-#define OLED_DC     1
+#define OLED_CS     30
+#define OLED_DC     29
 #define OLED_RESET  28
 
 unsigned long BAR_EEPROM_POS = 0;
@@ -183,8 +183,7 @@ String utf8rus(String source)
   int i,k;
   String target;
   unsigned char n;
-  char m[2] = { 
-    '0', '\0'                       };
+  char m[2] = {'0', '\0'};
 
   k = source.length(); 
   i = 0;
@@ -324,6 +323,13 @@ void ShowBMP085() {
 
         barArray[j] = bmp085_data.Press; 
         bar_data.push(bmp085_data.Press);
+        
+        Serial.print(bmp085_data.Press);
+        Serial.print(" ");
+        Serial.print(bmp085_data.Temp);
+        Serial.print(" ");        
+        Serial.println(bmp085_data.unix_time);
+        Serial.println("----");        
 
       } 
       else {
