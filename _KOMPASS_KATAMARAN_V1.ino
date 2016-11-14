@@ -29,7 +29,7 @@
 
 #define FIVE_MINUT 300000
 #define TWO_DAYS 172800
-#define DEBUG 0
+#define DEBUG 1
 #define LED 23
 
 unsigned long BAR_EEPROM_POS = 0;
