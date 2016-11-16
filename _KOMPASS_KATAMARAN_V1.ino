@@ -1,11 +1,19 @@
 // ***************************************
 // Arduino 1.0.6 @ 31.10.2016
 // ***************************************
-// I2C device found at address 0x1E  !
-// I2C device found at address 0x50  !
-// I2C device found at address 0x51  !
-// I2C device found at address 0x68  !
-// I2C device found at address 0x77  !
+// I2C device found at address 0x1E  ! HMC5883
+// I2C device found at address 0x50  ! EEPROM 24LC512
+// I2C device found at address 0x51  ! PCF8563
+// I2C device found at address 0x68  ! MPU6050 
+// I2C device found at address 0x77  ! BMP085
+
+/*
+  Tilt compensated HMC5883L + MPU6050 (GY-86 / GY-87). Output for HMC5883L_compensation_processing.pde
+  Read more: http://www.jarzebski.pl/arduino/czujniki-i-sensory/3-osiowy-magnetometr-hmc5883l.html
+  GIT: https://github.com/jarzebski/Arduino-HMC5883L
+  Web: http://www.jarzebski.pl
+  (c) 2014 by Korneliusz Jarzebski
+*/
 
 #include <SPI.h>
 #include <Wire.h>
@@ -20,6 +28,9 @@
 #include <Average.h>
 #include <RTClib.h>
 #include <Rtc_Pcf8563.h>
+#include <HMC5883L.h>
+#include <MPU6050.h>
+
 
 #define OLED_MOSI   5
 #define OLED_CLK    7
@@ -29,8 +40,9 @@
 
 #define FIVE_MINUT 300000
 #define TWO_DAYS 172800
-#define DEBUG 1
+#define DEBUG 0
 #define LED 23
+#define UTC 3
 
 unsigned long BAR_EEPROM_POS = 0;
 
@@ -39,6 +51,15 @@ unsigned long BAR_EEPROM_POS = 0;
 #define EE24LC512MAXBYTES 524288/8 // 65536 Байт [0-655365]
 
 I2C_eeprom eeprom(EEPROM_ADDRESS,EE24LC512MAXBYTES);
+
+HMC5883L compass;
+
+int xc,yc,pc,zc,north;
+
+MPU6050 mpu;
+
+float heading1;
+float heading2;
 
 // ----------------------- BMP085 ---------------------------------
 
@@ -87,7 +108,53 @@ void setup() {
   display.begin();      // Turn On Display
   Wire.begin();
   delay(500);
+   
   bmp.init();  
+  
+  mpu.begin(MPU6050_SCALE_2000DPS, MPU6050_RANGE_2G);
+  
+  delay(500);
+  
+  // If you have GY-86 or GY-87 module.
+  // To access HMC5883L you need to disable the I2C Master Mode and Sleep Mode, and enable I2C Bypass Mode
+  // Turn_On_MPU(); // Включить Компасс и гироскоп
+
+  mpu.setI2CMasterModeEnabled(false);
+  mpu.setI2CBypassEnabled(true) ;
+  mpu.setSleepEnabled(false);
+  
+  compass.begin();
+  
+  delay(500);
+  
+  compass.setRange(HMC5883L_RANGE_1_3GA);
+  compass.setMeasurementMode(HMC5883L_CONTINOUS);
+  compass.setDataRate(HMC5883L_DATARATE_30HZ);
+  compass.setSamples(HMC5883L_SAMPLES_8);
+  // Set calibration offset. See HMC5883L_calibration.ino
+  // compass.setOffset(0, 0);
+  
+  int minX = 0;
+  int maxX = 0;
+  int minY = 0;
+  int maxY = 0;
+  int offX = 0;
+  int offY = 0;
+
+   Vector mag = compass.readRaw();
+
+  // Determine Min / Max values
+  if (mag.XAxis < minX) minX = mag.XAxis;
+  if (mag.XAxis > maxX) maxX = mag.XAxis;
+  if (mag.YAxis < minY) minY = mag.YAxis;
+  if (mag.YAxis > maxY) maxY = mag.YAxis;
+
+  // Calculate offsets
+   offX = (maxX + minX)/2;
+   offY = (maxY + minY)/2;
+  
+  compass.setOffset(offX, offY);
+
 
   // rtc.initClock();  // Erase Clock
 
@@ -144,7 +211,13 @@ void loop() {
 
   if(currentMillis - onePreviousInterval > 1000 ) {  // 1 Секунда
     onePreviousInterval = currentMillis;  
-    Display_Test();
+    
+    // Display_Test();         // Display 1
+    Display_Time_SunRise(); // Display 2 Время - Восход и Заход
+   // Display_Compass();         // Display 3
+   // Display_OLD_Compass();        // Dislay 4
+    // Display_Uroven();              // Display 5
+    
     if (digitalRead(LED) == 1) digitalWrite(LED,LOW); 
     else digitalWrite(LED,HIGH);
   }
@@ -153,9 +226,39 @@ void loop() {
 
 // =============================== Functions ================================
 
+void Display_Uroven( void ) {
+   
+  Vector normAccel = mpu.readNormalizeAccel();
 
-void Display_Test() {
+  int pitch = -(atan2(normAccel.XAxis, sqrt(normAccel.YAxis*normAccel.YAxis + normAccel.ZAxis*normAccel.ZAxis))*180.0)/M_PI;
+  int roll = (atan2(normAccel.YAxis, normAccel.ZAxis)*180.0)/M_PI;
 
+  display.fillRect(0,0,127,63,BLACK);
+
+  display.drawCircle(45,14,12,WHITE);
+  display.drawCircle(105,32,15,WHITE); // ok
+  
+  display.drawRect(0,0,80,30,WHITE);   // Roll
+  display.drawRect(85,0,42,63,WHITE);  // Pitch
+  
+  display.setTextColor(WHITE);
+  display.setTextSize(1);  
+  display.setCursor(5,40);
+  display.print("P:");
+  display.print(pitch);
+  display.setCursor(5,50);
+  display.print("R:");  
+  display.print(roll);
+
+  display.fillCircle(105,32-pitch,10,WHITE); 
+  display.fillCircle(45+roll,14,8,WHITE);
+  
+  display.display();
+  
+}
+
+void Display_Test( void ) {
+  
   display.cp437(true); // Для русских букв  
   //display.clearDisplay();
   display.setTextSize(2);
@@ -377,10 +480,345 @@ void ShowBMP085(boolean fs) {
 
 }
 
+// ================================== Вывести Время и Восход и заход Солнца ===================
+
+void Display_Time_SunRise(void ) {
+  
+  // Moscow 55.740404, 37.619706
+    
+  // Sunrise mySunrise(gps.location.lat(),gps.location.lng(),UTC);
+   
+   int t;
+   byte h_rise,m_rise,h_set,m_set;
+   
+   Sunrise mySunrise(55.740404, 37.619706,UTC);
+   
+   mySunrise.Actual();
+   
+   t = mySunrise.Rise(rtc.getMonth(),rtc.getDay()); // Month, Day !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+   
+   if(t >= 0) {
+    h_rise = mySunrise.Hour();
+    m_rise = mySunrise.Minute();
+   } else { h_rise = 0; m_rise = 0; }    
+   
+   t = mySunrise.Set(rtc.getMonth(),rtc.getDay()); // Month, Day !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+   
+   if(t >= 0) {
+    h_set = mySunrise.Hour();
+    m_set = mySunrise.Minute();  
+   } else { h_set = 0; m_set = 0; }
+   
+  // sprintf(f, "Sun Rise: %.2d:%.2d",h_rise,m_rise);
+  
+  display.cp437(true); // Для русских букв  
+  display.setTextSize(2);
+  display.setTextColor(WHITE);
+  display.setTextWrap(0);
+  display.fillRect(0,0,127,63,BLACK);
+  display.setTextColor(WHITE);
+  display.setCursor(0,0);
+  
+  display.print(utf8rus("Воc: "));
+  display.print(toZero(h_set));
+  display.print(":");
+  display.println(toZero(m_set));
+  
+  display.setTextSize(4);
+  display.print(toZero(rtc.getHour()));
+  
+  if ((rtc.getSecond() % 2) == 0)
+  display.print(":");
+  else   display.print(" ");
+
+  display.println(toZero(rtc.getMinute()));
+  
+  display.setTextSize(2);
+  display.print(utf8rus("Зах: "));
+  display.print(toZero(h_rise));
+  display.print(":");
+  display.print(toZero(m_rise));
+
+  display.display();
+  
+}
+// ==== добавляем ноль впереди для красоты 1:1 = 01:01 ==============
+
+String toZero(int i) {
+ 
+ String out;
+ 
+ char tmp[3];
+ 
+ sprintf(tmp,"%02d",i);
+ 
+ out = String(tmp);
+
+ return out;
+
+}
+
+void Display_Compass(void) {
+  
+  display.cp437(true); // Для русских букв  
+  display.setTextSize(2);
+  display.setTextColor(WHITE);
+  display.setTextWrap(0);
+  display.fillRect(0,0,127,63,BLACK);
+  display.setTextColor(WHITE);
+  display.setCursor(0,0);
+  
+  display.setTextSize(2);
+  display.println(utf8rus("Компас"));
+  
+  display.setTextSize(4);
+  north = round(get_compass());
+  north = getcompasscourse();  // Не то
+  north = round(Tcompass());
+  display.print(north);
+  display.display(); 
+   
+}
+
+float get_compass( void ) {
+
+  Vector norm = compass.readNormalize();
+
+  float heading = atan2(norm.YAxis, norm.XAxis);
+
+  // Set declination angle on your location and fix heading
+  // You can find your declination on: http://magnetic-declination.com/
+  // (+) Positive or (-) for negative
+  // For Bytom / Poland declination angle is 4'26E (positive)
+  // Formula: (deg + (min / 60.0)) / (180 / M_PI);
+  
+  // Moscow склонение 10'47
+  
+  float declinationAngle = (10.0 + (47.0 / 60.0)) / (180 / M_PI);
+  
+  // heading += declinationAngle;
+
+  // Correct for heading < 0 deg and heading > 360 deg
+  
+  if (heading < 0) { 
+    heading += 2 * PI; 
+  }
+
+  if (heading > 2 * PI) { 
+    heading -= 2 * PI; 
+  }
+
+  // Convert to degrees
+
+  float headingDegrees = heading * 180/M_PI; 
+
+  return(headingDegrees);
+}
+
+int getcompasscourse(){
+  
+  int ax,ay,az,cx,cz,cy;
+  int var_compass;
+  
+  Vector norm = compass.readNormalize();
+ 
+  cx = norm.XAxis;
+  cz = norm.ZAxis;
+  cy = norm.YAxis;
+ 
+ Vector normAccel = mpu.readNormalizeAccel();
+
+  ax = normAccel.XAxis;
+  ay = normAccel.YAxis;
+  az = normAccel.ZAxis;
+  
+  float xh,yh,ayf,axf;
+  ayf=ay/57.0;//Convert to rad
+  axf=ax/57.0;//Convert to rad
+  xh=cx*cos(ayf)+cy*sin(ayf)*sin(axf)-cz*cos(axf)*sin(ayf);
+  yh=cy*cos(axf)+cz*sin(axf);
+ 
+  var_compass=atan2((double)yh,(double)xh) * (180 / PI) -90; // angle in degrees
+  if (var_compass>0){var_compass=var_compass-360;}
+  var_compass=360+var_compass;
+ 
+  return (var_compass);
+}
+
+
+// No tilt compensation
+float noTiltCompensate(Vector mag)
+{
+  float heading = atan2(mag.YAxis, mag.XAxis);
+  return heading;
+}
+ 
+// Tilt compensation
+float tiltCompensate(Vector mag, Vector normAccel)
+{
+  // Pitch & Roll 
+  
+  float roll;
+  float pitch;
+  
+  roll = asin(normAccel.YAxis);
+  pitch = asin(-normAccel.XAxis);
+
+  if (roll > 0.78 || roll < -0.78 || pitch > 0.78 || pitch < -0.78)
+  {
+    return -1000;
+  }
+  
+    // Some of these are used twice, so rather than computing them twice in the algorithem we precompute them before hand.
+  float cosRoll = cos(roll);
+  float sinRoll = sin(roll);  
+  float cosPitch = cos(pitch);
+  float sinPitch = sin(pitch);
+  
+  // Tilt compensation
+  float Xh = mag.XAxis * cosPitch + mag.ZAxis * sinPitch;
+  float Yh = mag.XAxis * sinRoll * sinPitch + mag.YAxis * cosRoll - mag.ZAxis * sinRoll * cosPitch;
+ 
+  float heading = atan2(Yh, Xh);
+    
+  return heading;
+}
+
+// Correct angle
+float correctAngle(float heading)
+{
+  if (heading < 0) { heading += 2 * PI; }
+  if (heading > 2 * PI) { heading -= 2 * PI; }
+
+  return heading;
+}
 
 
 
+float Tcompass (void) {
+
+  // Read vectors
+
+  Vector mag = compass.readNormalize();
+  Vector acc = mpu.readScaledAccel();  
+
+  // Calculate headings
+  heading1 = noTiltCompensate(mag);
+  heading2 = tiltCompensate(mag, acc);
+  
+  if (heading2 == -1000)
+  {
+    heading2 = heading1;
+  }
+
+  // Set declination angle on your location and fix heading
+  // You can find your declination on: http://magnetic-declination.com/
+  // (+) Positive or (-) for negative
+  // For Bytom / Poland declination angle is 4'26E (positive)
+  // Formula: (deg + (min / 60.0)) / (180 / M_PI);
+  float declinationAngle = (10.0 + (26.0 / 60.0)) / (180 / M_PI);
+  heading1 += declinationAngle;
+  heading2 += declinationAngle;
+  
+  // Correct for heading < 0deg and heading > 360deg
+  heading1 = correctAngle(heading1);
+  heading2 = correctAngle(heading2);
+
+  // Convert to degrees
+  heading1 = heading1 * 180/M_PI; 
+  heading2 = heading2 * 180/M_PI; 
+
+  // Output
+//  Serial.print(heading1);
+//  Serial.print(":");
+//  Serial.println(heading2);
+
+  return(heading2);
+
+}
+
+void Display_OLD_Compass( void ) {
+
+    north  = round(get_compass());
+  
+    display.fillRect(0,0,127,63,BLACK);
+  
+    display.drawCircle(96, 32, 30,WHITE);
+
+    get_dir_print(1,10); // Печать направления
+    
+    display.setCursor(1,30);
+    
+    display.print(round(get_compass())); // Печать азимута    
+    display.print(char(176)); // Печатаем значок градуса
+
+    draw_line();
+    
+    pc = north - 180; 
+    if (pc > 360) pc = north - 180;
+    
+    xc = 96 - (29 * cos(pc*(3.14/180)));
+    yc = 32 -(29 * sin(pc*(3.14/180)));
+    
+    display.drawCircle(xc,yc, 3,WHITE);
+
+    display.display();
+
+}
+
+void get_dir_print( int x, int y) {
+
+  int z = round(get_compass());
+
+  if (z > 0 & z < 90)       { 
+    print_dir('N',x,y);  
+    print_dir('E',x+10,y);  
+  }
+  if (z > 90 & z < 180)   { 
+    print_dir('E',x,y);  
+    print_dir('S',x+10,y);  
+  }
+  if (z > 180 & zc < 270) { 
+    print_dir('S',x,y);  
+    print_dir('W',x+10,y); 
+  }
+  if (z > 270 & z < 360) { 
+    print_dir('W',x,y); 
+    print_dir('N',x+10,y);  
+  }
 
 
+}
+
+void print_dir(char a, int x, int y) {
+
+  display.cp437(true);  
+  display.setTextSize(2);
+  display.setTextColor(WHITE);
+  display.setCursor(x,y);
+  if (a=='N') display.print(utf8rus("C"));
+  if (a=='S') display.print(utf8rus("Ю")); 
+  if (a=='E') display.print(utf8rus("В"));   
+  if (a=='W') display.print(utf8rus("З"));  
+
+}
 
 
+void draw_line( void ) {
+  
+    int r = 0;
+    
+    pc = -180; 
+    
+    xc = 96 - (29 * cos(r*(3.14/180)));
+    yc = 32 - (29 * sin(r*(3.14/180)));
+
+    display.drawLine(96,32,xc,yc,WHITE);
+    
+    xc = 96 - (29 * cos(pc*(3.14/180)));
+    yc = 32 -(29 * sin(pc*(3.14/180)));
+
+    display.drawLine(96,32,xc,yc,WHITE);
+    display.drawCircle(xc,yc, 3,WHITE);
+
+}
