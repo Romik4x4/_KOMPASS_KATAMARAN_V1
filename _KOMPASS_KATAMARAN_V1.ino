@@ -212,11 +212,11 @@ void loop() {
   if(currentMillis - onePreviousInterval > 1000 ) {  // 1 Секунда
     onePreviousInterval = currentMillis;  
     
-    // Display_Test();         // Display 1
-    Display_Time_SunRise(); // Display 2 Время - Восход и Заход
+    Display_Test();         // Display 1 Барометр
+    //Display_Time_SunRise(); // Display 2 Время - Восход и Заход
    // Display_Compass();         // Display 3
    // Display_OLD_Compass();        // Dislay 4
-    // Display_Uroven();              // Display 5
+    //Display_Uroven();              // Display 5
     
     if (digitalRead(LED) == 1) digitalWrite(LED,LOW); 
     else digitalWrite(LED,HIGH);
