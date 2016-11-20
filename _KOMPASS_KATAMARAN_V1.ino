@@ -34,9 +34,9 @@
 
 #define OLED_MOSI   5
 #define OLED_CLK    7
-#define OLED_CS     28
-#define OLED_DC     29
-#define OLED_RESET  30
+#define OLED_CS     A3
+#define OLED_DC     A2
+#define OLED_RESET  A1
 
 #define FIVE_MINUT 300000
 #define TWO_DAYS 172800
@@ -97,6 +97,8 @@ BMP085 bmp = BMP085();  // BMP085
 long Temperature = 0, Pressure = 0, Altitude = 0;
 
 boolean First = true;  // После старта
+
+long gps_count = 0;
 
 // ====================== Setup ================================================
 
@@ -178,6 +180,7 @@ void setup() {
      
      First = true;
 
+ 
 }
 
 // ================================ Main =====================================
@@ -207,12 +210,15 @@ void loop() {
   if (Serial1.available()) {
     nmea = Serial1.read();
     gps.encode(nmea);
+    // Serial.print(nmea);
   }
 
   if(currentMillis - onePreviousInterval > 1000 ) {  // 1 Секунда
     onePreviousInterval = currentMillis;  
     
-    Display_Test();         // Display 1 Барометр
+    Display_GPS();
+    
+    // Display_Test();         // Display 1 Барометр
     //Display_Time_SunRise(); // Display 2 Время - Восход и Заход
    // Display_Compass();         // Display 3
    // Display_OLD_Compass();        // Dislay 4
@@ -253,6 +259,26 @@ void Display_Uroven( void ) {
   display.fillCircle(105,32-pitch,10,WHITE); 
   display.fillCircle(45+roll,14,8,WHITE);
   
+  display.display();
+  
+}
+
+void Display_GPS( void ) {
+  
+  gps_count = gps.satellites.value();
+  
+  display.cp437(true); // Для русских букв  
+  display.setTextSize(2);
+  display.setTextColor(WHITE);
+  display.setTextWrap(0);
+  display.fillRect(0,0,127,63,BLACK);
+  display.setTextColor(WHITE);
+  display.setCursor(0,0);
+  display.println(utf8rus("Поиск"));
+  display.setTextSize(4);
+  display.println(gps_count);
+  display.setTextSize(2);
+  display.println(utf8rus("Спутников"));
   display.display();
   
 }
