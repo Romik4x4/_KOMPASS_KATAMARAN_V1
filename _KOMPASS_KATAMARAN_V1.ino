@@ -1,5 +1,5 @@
 // ***************************************
-// Arduino 1.0.6 @ 31.10.2016
+// Arduino 1.0.6 @ 31.10.2016 *
 // ***************************************
 // I2C device found at address 0x1E  ! HMC5883
 // I2C device found at address 0x50  ! EEPROM 24LC512
