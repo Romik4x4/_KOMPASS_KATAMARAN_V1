@@ -9,11 +9,11 @@
 
 /*
   Tilt compensated HMC5883L + MPU6050 (GY-86 / GY-87). Output for HMC5883L_compensation_processing.pde
-  Read more: http://www.jarzebski.pl/arduino/czujniki-i-sensory/3-osiowy-magnetometr-hmc5883l.html
-  GIT: https://github.com/jarzebski/Arduino-HMC5883L
-  Web: http://www.jarzebski.pl
-  (c) 2014 by Korneliusz Jarzebski
-*/
+ Read more: http://www.jarzebski.pl/arduino/czujniki-i-sensory/3-osiowy-magnetometr-hmc5883l.html
+ GIT: https://github.com/jarzebski/Arduino-HMC5883L
+ Web: http://www.jarzebski.pl
+ (c) 2014 by Korneliusz Jarzebski
+ */
 
 #include <SPI.h>
 #include <Wire.h>
@@ -110,13 +110,13 @@ void setup() {
   display.begin();      // Turn On Display
   Wire.begin();
   delay(500);
-   
+
   bmp.init();  
-  
+
   mpu.begin(MPU6050_SCALE_2000DPS, MPU6050_RANGE_2G);
-  
+
   delay(500);
-  
+
   // If you have GY-86 or GY-87 module.
   // To access HMC5883L you need to disable the I2C Master Mode and Sleep Mode, and enable I2C Bypass Mode
   // Turn_On_MPU(); // Включить Компасс и гироскоп
@@ -124,18 +124,18 @@ void setup() {
   mpu.setI2CMasterModeEnabled(false);
   mpu.setI2CBypassEnabled(true) ;
   mpu.setSleepEnabled(false);
-  
+
   compass.begin();
-  
+
   delay(500);
-  
+
   compass.setRange(HMC5883L_RANGE_1_3GA);
   compass.setMeasurementMode(HMC5883L_CONTINOUS);
   compass.setDataRate(HMC5883L_DATARATE_30HZ);
   compass.setSamples(HMC5883L_SAMPLES_8);
   // Set calibration offset. See HMC5883L_calibration.ino
   // compass.setOffset(0, 0);
-  
+
   int minX = 0;
   int maxX = 0;
   int minY = 0;
@@ -143,7 +143,7 @@ void setup() {
   int offX = 0;
   int offY = 0;
 
-   Vector mag = compass.readRaw();
+  Vector mag = compass.readRaw();
 
   // Determine Min / Max values
   if (mag.XAxis < minX) minX = mag.XAxis;
@@ -152,9 +152,9 @@ void setup() {
   if (mag.YAxis > maxY) maxY = mag.YAxis;
 
   // Calculate offsets
-   offX = (maxX + minX)/2;
-   offY = (maxY + minY)/2;
-  
+  offX = (maxX + minX)/2;
+  offY = (maxY + minY)/2;
+
   compass.setOffset(offX, offY);
 
 
@@ -163,24 +163,24 @@ void setup() {
   rtc.setSquareWave(SQW_1HZ);
 
   // rtc.clearSquareWave();
-  
+
   // day, weekday, month, century(1=1900, 0=2000), year(0-99)
   //  rtc.setDate(10, 4, 11, 0, 16);
   // hr, min, sec
   //  rtc.setTime(16,14,00);
-  
-    display.clearDisplay();
-    display.display();
-    
-    // Для стартовых значений
-    
-     bmp.getTemperature(&Temperature);  // Температура
-     bmp.getPressure(&Pressure);        // Давление
-     bmp.getAltitude(&Altitude);        // Высота 
-     
-     First = true;
 
- 
+  display.clearDisplay();
+  display.display();
+
+  // Для стартовых значений
+
+  bmp.getTemperature(&Temperature);  // Температура
+  bmp.getPressure(&Pressure);        // Давление
+  bmp.getAltitude(&Altitude);        // Высота 
+
+  First = true;
+
+
 }
 
 // ================================ Main =====================================
@@ -188,7 +188,7 @@ void setup() {
 
 void loop() {
 
-   
+
   currentMillis = millis();
 
   if(currentMillis - PreviousInterval > (FIVE_MINUT*3) ) {  // 15 Минут
@@ -215,15 +215,15 @@ void loop() {
 
   if(currentMillis - onePreviousInterval > 1000 ) {  // 1 Секунда
     onePreviousInterval = currentMillis;  
-    
-    Display_GPS();
-    
+
+    // Display_GPS();
+
     // Display_Test();         // Display 1 Барометр
-    //Display_Time_SunRise(); // Display 2 Время - Восход и Заход
-   // Display_Compass();         // Display 3
-   // Display_OLD_Compass();        // Dislay 4
+    Display_Time_SunRise(); // Display 2 Время - Восход и Заход
+    // Display_Compass();         // Display 3
+    // Display_OLD_Compass();        // Dislay 4
     //Display_Uroven();              // Display 5
-    
+
     if (digitalRead(LED) == 1) digitalWrite(LED,LOW); 
     else digitalWrite(LED,HIGH);
   }
@@ -233,7 +233,7 @@ void loop() {
 // =============================== Functions ================================
 
 void Display_Uroven( void ) {
-   
+
   Vector normAccel = mpu.readNormalizeAccel();
 
   int pitch = -(atan2(normAccel.XAxis, sqrt(normAccel.YAxis*normAccel.YAxis + normAccel.ZAxis*normAccel.ZAxis))*180.0)/M_PI;
@@ -243,10 +243,10 @@ void Display_Uroven( void ) {
 
   display.drawCircle(45,14,12,WHITE);
   display.drawCircle(105,32,15,WHITE); // ok
-  
+
   display.drawRect(0,0,80,30,WHITE);   // Roll
   display.drawRect(85,0,42,63,WHITE);  // Pitch
-  
+
   display.setTextColor(WHITE);
   display.setTextSize(1);  
   display.setCursor(5,40);
@@ -258,15 +258,17 @@ void Display_Uroven( void ) {
 
   display.fillCircle(105,32-pitch,10,WHITE); 
   display.fillCircle(45+roll,14,8,WHITE);
-  
+
   display.display();
-  
+
 }
 
+// =================================== GPS ==============================
+
 void Display_GPS( void ) {
-  
+
   gps_count = gps.satellites.value();
-  
+
   display.cp437(true); // Для русских букв  
   display.setTextSize(2);
   display.setTextColor(WHITE);
@@ -274,17 +276,29 @@ void Display_GPS( void ) {
   display.fillRect(0,0,127,63,BLACK);
   display.setTextColor(WHITE);
   display.setCursor(0,0);
-  display.println(utf8rus("Поиск"));
-  display.setTextSize(4);
-  display.println(gps_count);
-  display.setTextSize(2);
-  display.println(utf8rus("Спутников"));
+
+  if (gps_count < 3) {
+    display.println(utf8rus("Поиск"));
+    display.setTextSize(4);
+    display.println(gps_count);
+    display.setTextSize(2);
+    display.println(utf8rus("Спутников"));
+  } 
+  else {
+    display.println(gps.location.lat(), 6);  // Широта
+    display.println(gps.location.lng(), 6);  // Долгота      
+    display.print("COG:"); 
+    display.println(gps.course.deg());
+    display.print(utf8rus("км/ч:")); 
+    display.print(gps.speed.kmph());
+  }
+
   display.display();
-  
+
 }
 
 void Display_Test( void ) {
-  
+
   display.cp437(true); // Для русских букв  
   //display.clearDisplay();
   display.setTextSize(2);
@@ -320,7 +334,8 @@ String utf8rus(String source)
   int i,k;
   String target;
   unsigned char n;
-  char m[2] = {'0', '\0'};
+  char m[2] = {
+    '0', '\0'  };
 
   k = source.length(); 
   i = 0;
@@ -428,14 +443,14 @@ void ShowBMP085(boolean fs) {
 
   int H;
 
-   display.drawFastVLine(0,20,43, WHITE);
-   display.drawFastHLine(0,63,127, WHITE);
-    
+  display.drawFastVLine(0,20,43, WHITE);
+  display.drawFastHLine(0,63,127, WHITE);
+
   if ((currentMillis - barPreviousInterval > FIVE_MINUT/2) || fs == true ) {  
-       barPreviousInterval = currentMillis;      
+    barPreviousInterval = currentMillis;      
 
     First = false;
-    
+
     DateTime now = DateTime (rtc.getYear(), 
     rtc.getMonth(), 
     rtc.getDay(),
@@ -462,25 +477,25 @@ void ShowBMP085(boolean fs) {
 
         barArray[j] = bmp085_data.Press; 
         bar_data.push(bmp085_data.Press);
-        
+
       } 
       else {
 
         barArray[j] = 0.0;
 
       }
-      
+
     }
-    
+
     if (DEBUG) {
-     for(byte j=0;j<96;j++) Serial.println(barArray[j]);
-     Serial.println("===============");
+      for(byte j=0;j<96;j++) Serial.println(barArray[j]);
+      Serial.println("===============");
     }
 
     BAR_EEPROM_POS = 0;
-    
-     // barArray[0] = Pressure/133.3;  // Текущие значения  
-     // bar_data.push(Pressure/133.3);
+
+    // barArray[0] = Pressure/133.3;  // Текущие значения  
+    // bar_data.push(Pressure/133.3);
 
     int x_pos = 127;
 
@@ -491,7 +506,7 @@ void ShowBMP085(boolean fs) {
       display.drawLine(x_pos,20,x_pos,62, BLACK); // Стереть линию
 
       if (barArray[current_position] != 0.0) {     
-       display.drawLine(x_pos,62,x_pos,H,WHITE); // Нарисовать данные    
+        display.drawLine(x_pos,62,x_pos,H,WHITE); // Нарисовать данные    
       }
 
       if (current_position == 0) current_position = 96;
@@ -509,34 +524,43 @@ void ShowBMP085(boolean fs) {
 // ================================== Вывести Время и Восход и заход Солнца ===================
 
 void Display_Time_SunRise(void ) {
-  
-  // Moscow 55.740404, 37.619706
-    
+
+  // Moscow 55.740404, 37.619706    
   // Sunrise mySunrise(gps.location.lat(),gps.location.lng(),UTC);
-   
-   int t;
-   byte h_rise,m_rise,h_set,m_set;
-   
-   Sunrise mySunrise(55.740404, 37.619706,UTC);
-   
-   mySunrise.Actual();
-   
-   t = mySunrise.Rise(rtc.getMonth(),rtc.getDay()); // Month, Day !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-   
-   if(t >= 0) {
-    h_rise = mySunrise.Hour();
-    m_rise = mySunrise.Minute();
-   } else { h_rise = 0; m_rise = 0; }    
-   
-   t = mySunrise.Set(rtc.getMonth(),rtc.getDay()); // Month, Day !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-   
-   if(t >= 0) {
-    h_set = mySunrise.Hour();
-    m_set = mySunrise.Minute();  
-   } else { h_set = 0; m_set = 0; }
-   
-  // sprintf(f, "Sun Rise: %.2d:%.2d",h_rise,m_rise);
-  
+
+  int t;
+  byte h_rise=0,m_rise=0,h_set=0,m_set=0;
+
+  if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid()) {
+
+    Sunrise mySunrise(gps.location.lat(),gps.location.lng(),UTC);
+
+    mySunrise.Actual();
+
+    t = mySunrise.Rise(rtc.getMonth(),rtc.getDay()); // Month, Day !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+    if(t >= 0) {
+      h_rise = mySunrise.Hour();
+      m_rise = mySunrise.Minute();
+    } 
+    else { 
+      h_rise = 0; 
+      m_rise = 0; 
+    }    
+
+    t = mySunrise.Set(rtc.getMonth(),rtc.getDay()); // Month, Day !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+
+    if(t >= 0) {
+      h_set = mySunrise.Hour();
+      m_set = mySunrise.Minute();  
+    } 
+    else { 
+      h_set = 0; 
+      m_set = 0; 
+    }
+
+  }
+
   display.cp437(true); // Для русских букв  
   display.setTextSize(2);
   display.setTextColor(WHITE);
@@ -544,48 +568,48 @@ void Display_Time_SunRise(void ) {
   display.fillRect(0,0,127,63,BLACK);
   display.setTextColor(WHITE);
   display.setCursor(0,0);
-  
-  display.print(utf8rus("Воc: "));
+
+  display.print(utf8rus("Зах: "));
   display.print(toZero(h_set));
   display.print(":");
   display.println(toZero(m_set));
-  
+
   display.setTextSize(4);
   display.print(toZero(rtc.getHour()));
-  
+
   if ((rtc.getSecond() % 2) == 0)
-  display.print(":");
+    display.print(":");
   else   display.print(" ");
 
   display.println(toZero(rtc.getMinute()));
-  
+
   display.setTextSize(2);
-  display.print(utf8rus("Зах: "));
+  display.print(utf8rus("Вос: "));
   display.print(toZero(h_rise));
   display.print(":");
   display.print(toZero(m_rise));
 
   display.display();
-  
+
 }
 // ==== добавляем ноль впереди для красоты 1:1 = 01:01 ==============
 
 String toZero(int i) {
- 
- String out;
- 
- char tmp[3];
- 
- sprintf(tmp,"%02d",i);
- 
- out = String(tmp);
 
- return out;
+  String out;
+
+  char tmp[3];
+
+  sprintf(tmp,"%02d",i);
+
+  out = String(tmp);
+
+  return out;
 
 }
 
 void Display_Compass(void) {
-  
+
   display.cp437(true); // Для русских букв  
   display.setTextSize(2);
   display.setTextColor(WHITE);
@@ -593,17 +617,17 @@ void Display_Compass(void) {
   display.fillRect(0,0,127,63,BLACK);
   display.setTextColor(WHITE);
   display.setCursor(0,0);
-  
+
   display.setTextSize(2);
   display.println(utf8rus("Компас"));
-  
+
   display.setTextSize(4);
   north = round(get_compass());
   north = getcompasscourse();  // Не то
   north = round(Tcompass());
   display.print(north);
   display.display(); 
-   
+
 }
 
 float get_compass( void ) {
@@ -617,15 +641,15 @@ float get_compass( void ) {
   // (+) Positive or (-) for negative
   // For Bytom / Poland declination angle is 4'26E (positive)
   // Formula: (deg + (min / 60.0)) / (180 / M_PI);
-  
+
   // Moscow склонение 10'47
-  
+
   float declinationAngle = (10.0 + (47.0 / 60.0)) / (180 / M_PI);
-  
+
   // heading += declinationAngle;
 
   // Correct for heading < 0 deg and heading > 360 deg
-  
+
   if (heading < 0) { 
     heading += 2 * PI; 
   }
@@ -642,32 +666,34 @@ float get_compass( void ) {
 }
 
 int getcompasscourse(){
-  
+
   int ax,ay,az,cx,cz,cy;
   int var_compass;
-  
+
   Vector norm = compass.readNormalize();
- 
+
   cx = norm.XAxis;
   cz = norm.ZAxis;
   cy = norm.YAxis;
- 
- Vector normAccel = mpu.readNormalizeAccel();
+
+  Vector normAccel = mpu.readNormalizeAccel();
 
   ax = normAccel.XAxis;
   ay = normAccel.YAxis;
   az = normAccel.ZAxis;
-  
+
   float xh,yh,ayf,axf;
   ayf=ay/57.0;//Convert to rad
   axf=ax/57.0;//Convert to rad
   xh=cx*cos(ayf)+cy*sin(ayf)*sin(axf)-cz*cos(axf)*sin(ayf);
   yh=cy*cos(axf)+cz*sin(axf);
- 
+
   var_compass=atan2((double)yh,(double)xh) * (180 / PI) -90; // angle in degrees
-  if (var_compass>0){var_compass=var_compass-360;}
+  if (var_compass>0){
+    var_compass=var_compass-360;
+  }
   var_compass=360+var_compass;
- 
+
   return (var_compass);
 }
 
@@ -678,15 +704,15 @@ float noTiltCompensate(Vector mag)
   float heading = atan2(mag.YAxis, mag.XAxis);
   return heading;
 }
- 
+
 // Tilt compensation
 float tiltCompensate(Vector mag, Vector normAccel)
 {
   // Pitch & Roll 
-  
-  float roll;
+
+    float roll;
   float pitch;
-  
+
   roll = asin(normAccel.YAxis);
   pitch = asin(-normAccel.XAxis);
 
@@ -694,27 +720,31 @@ float tiltCompensate(Vector mag, Vector normAccel)
   {
     return -1000;
   }
-  
-    // Some of these are used twice, so rather than computing them twice in the algorithem we precompute them before hand.
+
+  // Some of these are used twice, so rather than computing them twice in the algorithem we precompute them before hand.
   float cosRoll = cos(roll);
   float sinRoll = sin(roll);  
   float cosPitch = cos(pitch);
   float sinPitch = sin(pitch);
-  
+
   // Tilt compensation
   float Xh = mag.XAxis * cosPitch + mag.ZAxis * sinPitch;
   float Yh = mag.XAxis * sinRoll * sinPitch + mag.YAxis * cosRoll - mag.ZAxis * sinRoll * cosPitch;
- 
+
   float heading = atan2(Yh, Xh);
-    
+
   return heading;
 }
 
 // Correct angle
 float correctAngle(float heading)
 {
-  if (heading < 0) { heading += 2 * PI; }
-  if (heading > 2 * PI) { heading -= 2 * PI; }
+  if (heading < 0) { 
+    heading += 2 * PI; 
+  }
+  if (heading > 2 * PI) { 
+    heading -= 2 * PI; 
+  }
 
   return heading;
 }
@@ -731,7 +761,7 @@ float Tcompass (void) {
   // Calculate headings
   heading1 = noTiltCompensate(mag);
   heading2 = tiltCompensate(mag, acc);
-  
+
   if (heading2 == -1000)
   {
     heading2 = heading1;
@@ -745,7 +775,7 @@ float Tcompass (void) {
   float declinationAngle = (10.0 + (26.0 / 60.0)) / (180 / M_PI);
   heading1 += declinationAngle;
   heading2 += declinationAngle;
-  
+
   // Correct for heading < 0deg and heading > 360deg
   heading1 = correctAngle(heading1);
   heading2 = correctAngle(heading2);
@@ -755,9 +785,9 @@ float Tcompass (void) {
   heading2 = heading2 * 180/M_PI; 
 
   // Output
-//  Serial.print(heading1);
-//  Serial.print(":");
-//  Serial.println(heading2);
+  //  Serial.print(heading1);
+  //  Serial.print(":");
+  //  Serial.println(heading2);
 
   return(heading2);
 
@@ -765,30 +795,30 @@ float Tcompass (void) {
 
 void Display_OLD_Compass( void ) {
 
-    north  = round(get_compass());
-  
-    display.fillRect(0,0,127,63,BLACK);
-  
-    display.drawCircle(96, 32, 30,WHITE);
+  north  = round(get_compass());
 
-    get_dir_print(1,10); // Печать направления
-    
-    display.setCursor(1,30);
-    
-    display.print(round(get_compass())); // Печать азимута    
-    display.print(char(176)); // Печатаем значок градуса
+  display.fillRect(0,0,127,63,BLACK);
 
-    draw_line();
-    
-    pc = north - 180; 
-    if (pc > 360) pc = north - 180;
-    
-    xc = 96 - (29 * cos(pc*(3.14/180)));
-    yc = 32 -(29 * sin(pc*(3.14/180)));
-    
-    display.drawCircle(xc,yc, 3,WHITE);
+  display.drawCircle(96, 32, 30,WHITE);
 
-    display.display();
+  get_dir_print(1,10); // Печать направления
+
+  display.setCursor(1,30);
+
+  display.print(round(get_compass())); // Печать азимута    
+  display.print(char(176)); // Печатаем значок градуса
+
+  draw_line();
+
+  pc = north - 180; 
+  if (pc > 360) pc = north - 180;
+
+  xc = 96 - (29 * cos(pc*(3.14/180)));
+  yc = 32 -(29 * sin(pc*(3.14/180)));
+
+  display.drawCircle(xc,yc, 3,WHITE);
+
+  display.display();
 
 }
 
@@ -831,20 +861,21 @@ void print_dir(char a, int x, int y) {
 
 
 void draw_line( void ) {
-  
-    int r = 0;
-    
-    pc = -180; 
-    
-    xc = 96 - (29 * cos(r*(3.14/180)));
-    yc = 32 - (29 * sin(r*(3.14/180)));
 
-    display.drawLine(96,32,xc,yc,WHITE);
-    
-    xc = 96 - (29 * cos(pc*(3.14/180)));
-    yc = 32 -(29 * sin(pc*(3.14/180)));
+  int r = 0;
 
-    display.drawLine(96,32,xc,yc,WHITE);
-    display.drawCircle(xc,yc, 3,WHITE);
+  pc = -180; 
+
+  xc = 96 - (29 * cos(r*(3.14/180)));
+  yc = 32 - (29 * sin(r*(3.14/180)));
+
+  display.drawLine(96,32,xc,yc,WHITE);
+
+  xc = 96 - (29 * cos(pc*(3.14/180)));
+  yc = 32 -(29 * sin(pc*(3.14/180)));
+
+  display.drawLine(96,32,xc,yc,WHITE);
+  display.drawCircle(xc,yc, 3,WHITE);
 
 }
+
