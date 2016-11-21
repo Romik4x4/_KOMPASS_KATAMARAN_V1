@@ -34,9 +34,9 @@
 
 #define OLED_MOSI   5
 #define OLED_CLK    7
-#define OLED_CS     A3
-#define OLED_DC     A2
-#define OLED_RESET  A1
+#define OLED_CS     30
+#define OLED_DC     29
+#define OLED_RESET  28
 
 #define FIVE_MINUT 300000
 #define TWO_DAYS 172800
