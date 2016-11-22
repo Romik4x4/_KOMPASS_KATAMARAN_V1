@@ -8,12 +8,12 @@
 // I2C device found at address 0x77  ! BMP085
 
 /*
-  Tilt compensated HMC5883L + MPU6050 (GY-86 / GY-87). Output for HMC5883L_compensation_processing.pde
+ Tilt compensated HMC5883L + MPU6050 (GY-86 / GY-87). Output for HMC5883L_compensation_processing.pde
  Read more: http://www.jarzebski.pl/arduino/czujniki-i-sensory/3-osiowy-magnetometr-hmc5883l.html
  GIT: https://github.com/jarzebski/Arduino-HMC5883L
  Web: http://www.jarzebski.pl
  (c) 2014 by Korneliusz Jarzebski
- */
+*/
 
 #include <SPI.h>
 #include <Wire.h>
@@ -31,7 +31,6 @@
 #include <HMC5883L.h>
 #include <MPU6050.h>
 
-
 #define OLED_MOSI   5
 #define OLED_CLK    7
 #define OLED_CS     2
@@ -44,7 +43,6 @@ Adafruit_SSD1306 display2(OLED_MOSI, OLED_CLK, 21,20,22);
 Adafruit_SSD1306 display3(OLED_MOSI, OLED_CLK, 13,14,12);  
 Adafruit_SSD1306 display4(OLED_MOSI, OLED_CLK, 18,19,15); 
 Adafruit_SSD1306 display5(OLED_MOSI, OLED_CLK, A7,23,A6); 
-
 
 #define FIVE_MINUT 300000
 #define TWO_DAYS 172800
@@ -171,7 +169,6 @@ void setup() {
 
   compass.setOffset(offX, offY);
 
-
   // rtc.initClock();  // Erase Clock
 
   rtc.setSquareWave(SQW_1HZ);
@@ -221,7 +218,7 @@ void loop() {
 
   currentMillis = millis();
 
-  if(currentMillis - PreviousInterval > (FIVE_MINUT*3) ) {  // 15 Минут
+  if(currentMillis - PreviousInterval > (FIVE_MINUT*3) ) {  // 15 Минут Save BAR to EEPROM
     PreviousInterval = currentMillis;  
 
     bmp.getTemperature(&Temperature);  // Температура
@@ -576,8 +573,8 @@ void Display_Time_SunRise(void ) {
 
     mySunrise.Actual();
 
-    t = mySunrise.Rise(rtc.getMonth(),rtc.getDay()); // Month, Day !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
+    t = mySunrise.Rise(rtc.getMonth(),rtc.getDay()); // Month,Day
+    
     if(t >= 0) {
       h_rise = mySunrise.Hour();
       m_rise = mySunrise.Minute();
@@ -587,8 +584,8 @@ void Display_Time_SunRise(void ) {
       m_rise = 0; 
     }    
 
-    t = mySunrise.Set(rtc.getMonth(),rtc.getDay()); // Month, Day !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
+    t = mySunrise.Set(rtc.getMonth(),rtc.getDay()); // Month,Day
+   
     if(t >= 0) {
       h_set = mySunrise.Hour();
       m_set = mySunrise.Minute();  
@@ -845,14 +842,16 @@ void Display_OLD_Compass( void ) {
 
   display4.drawCircle(96, 32, 30,WHITE);
 
-  get_dir_print(1,10); // Печать направления
-
-  display4.setCursor(1,30);
-
+  get_dir_print(1,10);      // Печать направления
+  
+  display2.cp437(true);     // Для русских букв 
+  display4.setTextSize(2);
+  display4.setCursor(1,35);
   display4.print(round(get_compass())); // Печать азимута    
   display4.print(char(176)); // Печатаем значок градуса
 
-  draw_line();
+  draw_line();//U8GLIB_SSD1306_128X64 u8g(13, 11, 10, 9);	// SW SPI Com: SCK = 13, MOSI = 11, CS = 10, A0 = 9
+
 
   pc = north - 180; 
   if (pc > 360) pc = north - 180;
@@ -872,34 +871,33 @@ void get_dir_print( int x, int y) {
 
   if (z > 0 & z < 90)       { 
     print_dir('N',x,y);  
-    print_dir('E',x+10,y);  
+    print_dir('E',x+15,y);  
   }
   if (z > 90 & z < 180)   { 
     print_dir('E',x,y);  
-    print_dir('S',x+10,y);  
+    print_dir('S',x+15,y);  
   }
   if (z > 180 & zc < 270) { 
     print_dir('S',x,y);  
-    print_dir('W',x+10,y); 
+    print_dir('W',x+15,y); 
   }
   if (z > 270 & z < 360) { 
     print_dir('W',x,y); 
-    print_dir('N',x+10,y);  
+    print_dir('N',x+15,y);  
   }
-
+ 
 
 }
 
 void print_dir(char a, int x, int y) {
 
-  display4.cp437(true);  
   display4.setTextSize(2);
   display4.setTextColor(WHITE);
   display4.setCursor(x,y);
-  if (a=='N') display4.print(utf8rus("C"));
-  if (a=='S') display4.print(utf8rus("Ю")); 
-  if (a=='E') display4.print(utf8rus("В"));   
-  if (a=='W') display4.print(utf8rus("З"));  
+  if (a=='N') display4.print("N");
+  if (a=='S') display4.print("S"); 
+  if (a=='E') display4.print("E");   
+  if (a=='W') display4.print("W");  
 
 }
 
