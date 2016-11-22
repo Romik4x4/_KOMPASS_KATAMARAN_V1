@@ -34,14 +34,22 @@
 
 #define OLED_MOSI   5
 #define OLED_CLK    7
-#define OLED_CS     30
-#define OLED_DC     29
-#define OLED_RESET  28
+#define OLED_CS     2
+#define OLED_DC     3
+#define OLED_RESET  4
+
+Adafruit_SSD1306  display(OLED_MOSI, OLED_CLK, OLED_DC, OLED_RESET, OLED_CS);  // main display
+Adafruit_SSD1306 display1(OLED_MOSI, OLED_CLK, A2,A1,A3);  
+Adafruit_SSD1306 display2(OLED_MOSI, OLED_CLK, 21,20,22);  
+Adafruit_SSD1306 display3(OLED_MOSI, OLED_CLK, 13,14,12);  
+Adafruit_SSD1306 display4(OLED_MOSI, OLED_CLK, 18,19,15); 
+Adafruit_SSD1306 display5(OLED_MOSI, OLED_CLK, A7,23,A6); 
+
 
 #define FIVE_MINUT 300000
 #define TWO_DAYS 172800
 #define DEBUG 0
-#define LED 23
+#define LED 23 //  Do not Usage !!!
 #define UTC 3
 
 unsigned long BAR_EEPROM_POS = 0;
@@ -80,7 +88,6 @@ struct bmp085_out // Данные о давлении,высоте и темпе
 bmp085_data_out;
 
 
-Adafruit_SSD1306 display(OLED_MOSI, OLED_CLK, OLED_DC, OLED_RESET, OLED_CS);
 
 unsigned long currentMillis;
 unsigned long PreviousInterval = 0;  
@@ -105,9 +112,16 @@ long gps_count = 0;
 void setup() {
 
   Serial.begin(9600);   // Debug
-  pinMode(LED, OUTPUT);  // LED
+  // pinMode(LED, OUTPUT);  // LED
   Serial1.begin(4800);  // GPS
-  display.begin();      // Turn On Display
+  
+  display.begin();       // Turn On Display
+  display1.begin();      // Turn On Display
+  display2.begin();      // Turn On Display
+  display3.begin();      // Turn On Display
+  display4.begin();      // Turn On Display
+  display5.begin();      // Turn On Display
+   
   Wire.begin();
   delay(500);
 
@@ -171,6 +185,22 @@ void setup() {
 
   display.clearDisplay();
   display.display();
+  
+  display1.clearDisplay();
+  display1.display();
+  
+  display2.clearDisplay();
+  display2.display();
+  
+  display3.clearDisplay();
+  display3.display();
+
+  display4.clearDisplay();
+  display4.display();
+  
+  display5.clearDisplay();
+  display5.display();
+  
 
   // Для стартовых значений
 
@@ -213,19 +243,18 @@ void loop() {
     // Serial.print(nmea);
   }
 
-  if(currentMillis - onePreviousInterval > 1000 ) {  // 1 Секунда
+  if(currentMillis - onePreviousInterval > 500 ) {  // 1 Секунда = 1000
     onePreviousInterval = currentMillis;  
 
-    // Display_GPS();
-
-    // Display_Test();         // Display 1 Барометр
-    Display_Time_SunRise(); // Display 2 Время - Восход и Заход
-    // Display_Compass();         // Display 3
-    // Display_OLD_Compass();        // Dislay 4
-    //Display_Uroven();              // Display 5
-
-    if (digitalRead(LED) == 1) digitalWrite(LED,LOW); 
-    else digitalWrite(LED,HIGH);
+    Display_GPS();              // Display 5
+    Display_Test();            // Display 1 - Барометр
+    Display_Time_SunRise();    // Display 0
+    Display_Compass();         // Display 2
+    Display_OLD_Compass();        // Dislay 4
+    Display_Uroven();              // Display 3
+    
+    // if (digitalRead(LED) == 1) digitalWrite(LED,LOW); 
+    // else digitalWrite(LED,HIGH);
   }
 
 }
@@ -234,32 +263,35 @@ void loop() {
 
 void Display_Uroven( void ) {
 
+  
+  display3.clearDisplay();
+  
   Vector normAccel = mpu.readNormalizeAccel();
 
   int pitch = -(atan2(normAccel.XAxis, sqrt(normAccel.YAxis*normAccel.YAxis + normAccel.ZAxis*normAccel.ZAxis))*180.0)/M_PI;
   int roll = (atan2(normAccel.YAxis, normAccel.ZAxis)*180.0)/M_PI;
 
-  display.fillRect(0,0,127,63,BLACK);
+  display3.fillRect(0,0,127,63,BLACK);
 
-  display.drawCircle(45,14,12,WHITE);
-  display.drawCircle(105,32,15,WHITE); // ok
+  display3.drawCircle(45,14,12,WHITE);
+  display3.drawCircle(105,32,15,WHITE); // ok
 
-  display.drawRect(0,0,80,30,WHITE);   // Roll
-  display.drawRect(85,0,42,63,WHITE);  // Pitch
+  display3.drawRect(0,0,80,30,WHITE);   // Roll
+  display3.drawRect(85,0,42,63,WHITE);  // Pitch
 
-  display.setTextColor(WHITE);
-  display.setTextSize(1);  
-  display.setCursor(5,40);
-  display.print("P:");
-  display.print(pitch);
-  display.setCursor(5,50);
-  display.print("R:");  
-  display.print(roll);
+  display3.setTextColor(WHITE);
+  display3.setTextSize(1);  
+  display3.setCursor(5,40);
+  display3.print("P:");
+  display3.print(pitch);
+  display3.setCursor(5,50);
+  display3.print("R:");  
+  display3.print(roll);
 
-  display.fillCircle(105,32-pitch,10,WHITE); 
-  display.fillCircle(45+roll,14,8,WHITE);
+  display3.fillCircle(105,32-pitch,10,WHITE); 
+  display3.fillCircle(45+roll,14,8,WHITE);
 
-  display.display();
+  display3.display();
 
 }
 
@@ -269,45 +301,52 @@ void Display_GPS( void ) {
 
   gps_count = gps.satellites.value();
 
-  display.cp437(true); // Для русских букв  
-  display.setTextSize(2);
-  display.setTextColor(WHITE);
-  display.setTextWrap(0);
-  display.fillRect(0,0,127,63,BLACK);
-  display.setTextColor(WHITE);
-  display.setCursor(0,0);
+  display5.clearDisplay();
+
+  display5.cp437(true); // Для русских букв  
+  display5.setTextSize(2);
+  display5.setTextColor(WHITE);
+  display5.setTextWrap(0);
+  display5.fillRect(0,0,127,63,BLACK);
+  display5.setTextColor(WHITE);
+  display5.setCursor(0,0);
 
   if (gps_count < 3) {
-    display.println(utf8rus("Поиск"));
-    display.setTextSize(4);
-    display.println(gps_count);
-    display.setTextSize(2);
-    display.println(utf8rus("Спутников"));
+    display5.println(utf8rus("Поиск"));
+    display5.setTextSize(4);
+    display5.println(gps_count);
+    display5.setTextSize(2);
+    display5.println(utf8rus("Спутников"));
   } 
   else {
-    display.println(gps.location.lat(), 6);  // Широта
-    display.println(gps.location.lng(), 6);  // Долгота      
-    display.print("COG:"); 
-    display.println(gps.course.deg());
-    display.print(utf8rus("км/ч:")); 
-    display.print(gps.speed.kmph());
+    display5.println(gps.location.lat(), 6);  // Широта
+    display5.println(gps.location.lng(), 6);  // Долгота      
+    display5.print("COG:"); 
+    display5.println(gps.course.deg());
+    display5.print(utf8rus("км/ч:")); 
+    display5.print(gps.speed.kmph());
   }
 
-  display.display();
+  display5.display();
 
 }
 
+
+// ============ Барометер =============================
+
 void Display_Test( void ) {
 
-  display.cp437(true); // Для русских букв  
-  //display.clearDisplay();
-  display.setTextSize(2);
-  display.setTextColor(WHITE);
-  display.setTextWrap(0);
-  display.fillRect(0,0,127,16,BLACK);
-  display.setTextColor(WHITE);
-  display.setCursor(0,0);
-  display.print(rtc.formatTime());
+  
+  display1.clearDisplay();
+  
+  display1.cp437(true); // Для русских букв  
+  display1.setTextSize(2);
+  display1.setTextColor(WHITE);
+  display1.setTextWrap(0);
+  display1.fillRect(0,0,127,16,BLACK);
+  display1.setTextColor(WHITE);
+  display1.setCursor(0,0);
+  display1.print(rtc.formatTime());
 
   //  display.println(utf8rus("Скорость:"));
   //  display.print(" ");
@@ -325,7 +364,7 @@ void Display_Test( void ) {
   //  virtual void drawFastHLine(int16_t x, int16_t y, int16_t w, uint16_t color);
 
   ShowBMP085(First);
-  display.display();
+  display1.display();
 
 }
 
@@ -443,8 +482,8 @@ void ShowBMP085(boolean fs) {
 
   int H;
 
-  display.drawFastVLine(0,20,43, WHITE);
-  display.drawFastHLine(0,63,127, WHITE);
+  display1.drawFastVLine(0,20,43, WHITE);
+  display1.drawFastHLine(0,63,127, WHITE);
 
   if ((currentMillis - barPreviousInterval > FIVE_MINUT/2) || fs == true ) {  
     barPreviousInterval = currentMillis;      
@@ -503,10 +542,10 @@ void ShowBMP085(boolean fs) {
 
       H = map(barArray[current_position],bar_data.minimum(),bar_data.maximum(),62,20);
 
-      display.drawLine(x_pos,20,x_pos,62, BLACK); // Стереть линию
+      display1.drawLine(x_pos,20,x_pos,62, BLACK); // Стереть линию
 
       if (barArray[current_position] != 0.0) {     
-        display.drawLine(x_pos,62,x_pos,H,WHITE); // Нарисовать данные    
+        display1.drawLine(x_pos,62,x_pos,H,WHITE); // Нарисовать данные    
       }
 
       if (current_position == 0) current_position = 96;
@@ -561,6 +600,8 @@ void Display_Time_SunRise(void ) {
 
   }
 
+  display.clearDisplay();
+
   display.cp437(true); // Для русских букв  
   display.setTextSize(2);
   display.setTextColor(WHITE);
@@ -610,23 +651,24 @@ String toZero(int i) {
 
 void Display_Compass(void) {
 
-  display.cp437(true); // Для русских букв  
-  display.setTextSize(2);
-  display.setTextColor(WHITE);
-  display.setTextWrap(0);
-  display.fillRect(0,0,127,63,BLACK);
-  display.setTextColor(WHITE);
-  display.setCursor(0,0);
+  display2.clearDisplay();
+  display2.cp437(true); // Для русских букв  
+  display2.setTextSize(2);
+  display2.setTextColor(WHITE);
+  display2.setTextWrap(0);
+  display2.fillRect(0,0,127,63,BLACK);
+  display2.setTextColor(WHITE);
+  display2.setCursor(0,0);
 
-  display.setTextSize(2);
-  display.println(utf8rus("Компас"));
+  display2.setTextSize(2);
+  display2.println(utf8rus("Компас"));
 
-  display.setTextSize(4);
+  display2.setTextSize(4);
   north = round(get_compass());
   north = getcompasscourse();  // Не то
   north = round(Tcompass());
-  display.print(north);
-  display.display(); 
+  display2.print(north);
+  display2.display(); 
 
 }
 
@@ -797,16 +839,18 @@ void Display_OLD_Compass( void ) {
 
   north  = round(get_compass());
 
-  display.fillRect(0,0,127,63,BLACK);
+  display4.clearDisplay();
 
-  display.drawCircle(96, 32, 30,WHITE);
+  display4.fillRect(0,0,127,63,BLACK);
+
+  display4.drawCircle(96, 32, 30,WHITE);
 
   get_dir_print(1,10); // Печать направления
 
-  display.setCursor(1,30);
+  display4.setCursor(1,30);
 
-  display.print(round(get_compass())); // Печать азимута    
-  display.print(char(176)); // Печатаем значок градуса
+  display4.print(round(get_compass())); // Печать азимута    
+  display4.print(char(176)); // Печатаем значок градуса
 
   draw_line();
 
@@ -816,9 +860,9 @@ void Display_OLD_Compass( void ) {
   xc = 96 - (29 * cos(pc*(3.14/180)));
   yc = 32 -(29 * sin(pc*(3.14/180)));
 
-  display.drawCircle(xc,yc, 3,WHITE);
+  display4.drawCircle(xc,yc, 3,WHITE);
 
-  display.display();
+  display4.display();
 
 }
 
@@ -848,14 +892,14 @@ void get_dir_print( int x, int y) {
 
 void print_dir(char a, int x, int y) {
 
-  display.cp437(true);  
-  display.setTextSize(2);
-  display.setTextColor(WHITE);
-  display.setCursor(x,y);
-  if (a=='N') display.print(utf8rus("C"));
-  if (a=='S') display.print(utf8rus("Ю")); 
-  if (a=='E') display.print(utf8rus("В"));   
-  if (a=='W') display.print(utf8rus("З"));  
+  display4.cp437(true);  
+  display4.setTextSize(2);
+  display4.setTextColor(WHITE);
+  display4.setCursor(x,y);
+  if (a=='N') display4.print(utf8rus("C"));
+  if (a=='S') display4.print(utf8rus("Ю")); 
+  if (a=='E') display4.print(utf8rus("В"));   
+  if (a=='W') display4.print(utf8rus("З"));  
 
 }
 
@@ -869,13 +913,13 @@ void draw_line( void ) {
   xc = 96 - (29 * cos(r*(3.14/180)));
   yc = 32 - (29 * sin(r*(3.14/180)));
 
-  display.drawLine(96,32,xc,yc,WHITE);
+  display4.drawLine(96,32,xc,yc,WHITE);
 
   xc = 96 - (29 * cos(pc*(3.14/180)));
   yc = 32 -(29 * sin(pc*(3.14/180)));
 
-  display.drawLine(96,32,xc,yc,WHITE);
-  display.drawCircle(xc,yc, 3,WHITE);
+  display4.drawLine(96,32,xc,yc,WHITE);
+  display4.drawCircle(xc,yc, 3,WHITE);
 
 }
 
