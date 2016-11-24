@@ -13,7 +13,7 @@
  GIT: https://github.com/jarzebski/Arduino-HMC5883L
  Web: http://www.jarzebski.pl
  (c) 2014 by Korneliusz Jarzebski
-*/
+ */
 
 #include <SPI.h>
 #include <Wire.h>
@@ -37,7 +37,7 @@
 #define OLED_DC     3
 #define OLED_RESET  4
 
-Adafruit_SSD1306  display(OLED_MOSI, OLED_CLK, OLED_DC, OLED_RESET, OLED_CS);  // main display
+Adafruit_SSD1306 display0(OLED_MOSI, OLED_CLK, OLED_DC, OLED_RESET, OLED_CS);  // main display
 Adafruit_SSD1306 display1(OLED_MOSI, OLED_CLK, A2,A1,A3);  
 Adafruit_SSD1306 display2(OLED_MOSI, OLED_CLK, 21,20,22);  
 Adafruit_SSD1306 display3(OLED_MOSI, OLED_CLK, 13,14,12);  
@@ -112,14 +112,14 @@ void setup() {
   Serial.begin(9600);   // Debug
   // pinMode(LED, OUTPUT);  // LED
   Serial1.begin(4800);  // GPS
-  
-  display.begin();       // Turn On Display
+
+  display0.begin();       // Turn On Display
   display1.begin();      // Turn On Display
   display2.begin();      // Turn On Display
   display3.begin();      // Turn On Display
   display4.begin();      // Turn On Display
   display5.begin();      // Turn On Display
-   
+
   Wire.begin();
   delay(500);
 
@@ -180,30 +180,34 @@ void setup() {
   // hr, min, sec
   //  rtc.setTime(16,14,00);
 
-  display.clearDisplay();
-  display.display();
-  
+  display0.clearDisplay();
+  display0.display();
+
   display1.clearDisplay();
   display1.display();
-  
+
   display2.clearDisplay();
   display2.display();
-  
+
   display3.clearDisplay();
   display3.display();
 
   display4.clearDisplay();
   display4.display();
-  
+
   display5.clearDisplay();
   display5.display();
-  
+
 
   // Для стартовых значений
 
   bmp.getTemperature(&Temperature);  // Температура
   bmp.getPressure(&Pressure);        // Давление
   bmp.getAltitude(&Altitude);        // Высота 
+
+  bmp085_data.Press = Pressure/133.3;
+  bmp085_data.Alt   = Altitude/100.0;
+  bmp085_data.Temp  = Temperature/10.0;
 
   First = true;
 
@@ -217,6 +221,12 @@ void loop() {
 
 
   currentMillis = millis();
+
+  if ((currentMillis - barPreviousInterval > FIVE_MINUT/2) || First == true ) {  
+    barPreviousInterval = currentMillis;   
+    ShowBMP085();
+    First =  false;
+  }
 
   if(currentMillis - PreviousInterval > (FIVE_MINUT*3) ) {  // 15 Минут Save BAR to EEPROM
     PreviousInterval = currentMillis;  
@@ -249,7 +259,7 @@ void loop() {
     Display_Compass();         // Display 2
     Display_OLD_Compass();        // Dislay 4
     Display_Uroven();              // Display 3
-    
+
     // if (digitalRead(LED) == 1) digitalWrite(LED,LOW); 
     // else digitalWrite(LED,HIGH);
   }
@@ -260,9 +270,9 @@ void loop() {
 
 void Display_Uroven( void ) {
 
-  
+
   display3.clearDisplay();
-  
+
   Vector normAccel = mpu.readNormalizeAccel();
 
   int pitch = -(atan2(normAccel.XAxis, sqrt(normAccel.YAxis*normAccel.YAxis + normAccel.ZAxis*normAccel.ZAxis))*180.0)/M_PI;
@@ -333,35 +343,35 @@ void Display_GPS( void ) {
 
 void Display_Test( void ) {
 
-  
+  /*
   display1.clearDisplay();
-  
-  display1.cp437(true); // Для русских букв  
-  display1.setTextSize(2);
-  display1.setTextColor(WHITE);
-  display1.setTextWrap(0);
-  display1.fillRect(0,0,127,16,BLACK);
-  display1.setTextColor(WHITE);
-  display1.setCursor(0,0);
-  display1.print(rtc.formatTime());
-
-  //  display.println(utf8rus("Скорость:"));
-  //  display.print(" ");
-  //  display.println(Pressure/133.3);
-  //  display.setTextColor(WHITE);
-  //  display.setTextSize(4);
-  //  display.println(gps.charsProcessed());
-  //  display.setTextSize(2);
-  //  display.println(utf8rus("км/ч"));
-  //  display.print(rtc.formatTime());
-  //  virtual void drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t color);
-  //  virtual void drawFastHLine(int16_t x, int16_t y, int16_t w, uint16_t color);
-
-  //  virtual void drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t color);
-  //  virtual void drawFastHLine(int16_t x, int16_t y, int16_t w, uint16_t color);
-
-  ShowBMP085(First);
-  display1.display();
+   
+   display1.cp437(true); // Для русских букв  
+   display1.setTextSize(2);
+   display1.setTextColor(WHITE);
+   display1.setTextWrap(0);
+   display1.fillRect(0,0,127,16,BLACK);
+   display1.setTextColor(WHITE);
+   display1.setCursor(0,0);
+   display1.print(rtc.formatTime());
+   
+   //  display.println(utf8rus("Скорость:"));
+   //  display.print(" ");
+   //  display.println(Pressure/133.3);
+   //  display.setTextColor(WHITE);
+   //  display.setTextSize(4);
+   //  display.println(gps.charsProcessed());
+   //  display.setTextSize(2);
+   //  display.println(utf8rus("км/ч"));
+   //  display.print(rtc.formatTime());
+   //  virtual void drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t color);
+   //  virtual void drawFastHLine(int16_t x, int16_t y, int16_t w, uint16_t color);
+   
+   //  virtual void drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t color);
+   //  virtual void drawFastHLine(int16_t x, int16_t y, int16_t w, uint16_t color);
+   
+   ShowBMP085();
+   display1.display(); */
 
 }
 
@@ -371,7 +381,7 @@ String utf8rus(String source)
   String target;
   unsigned char n;
   char m[2] = {
-    '0', '\0'  };
+    '0', '\0'    };
 
   k = source.length(); 
   i = 0;
@@ -475,86 +485,81 @@ void Save_Bar_Data( void ) {
 
 // ---------------- Barometer Graphics ------------------------
 
-void ShowBMP085(boolean fs) {
+void ShowBMP085( void ) {
 
   int H;
 
-  display1.drawFastVLine(0,20,43, WHITE);
-  display1.drawFastHLine(0,63,127, WHITE);
+  display1.clearDisplay();
+  display1.drawFastVLine(30,0,63, WHITE);
+  display1.drawFastHLine(30,63,97, WHITE);
 
-  if ((currentMillis - barPreviousInterval > FIVE_MINUT/2) || fs == true ) {  
-    barPreviousInterval = currentMillis;      
+  display1.setTextSize(1);
+  display1.setTextColor(WHITE);
+  display1.setTextWrap(0);
+  display1.setTextColor(WHITE);
+  display1.setCursor(0,0);
+  display1.print(int(bmp085_data.Temp)*-1);
+  display1.print(char(176));
 
-    First = false;
+  DateTime now = DateTime (rtc.getYear(), 
+  rtc.getMonth(), 
+  rtc.getDay(),
+  rtc.getHour(), 
+  rtc.getMinute(), 
+  rtc.getSecond());  
 
-    DateTime now = DateTime (rtc.getYear(), 
-    rtc.getMonth(), 
-    rtc.getDay(),
-    rtc.getHour(), 
-    rtc.getMinute(), 
-    rtc.getSecond());  
+  byte current_position = (now.unixtime()/1800)%96;  
 
-    byte current_position = (now.unixtime()/1800)%96;  
+  Average<double> bar_data(96); // Вычисление максимального и минимального значения
 
-    Average<double> bar_data(96); // Вычисление максимального и минимального значения
+  double barArray[96];   
 
-    double barArray[96];   
+  BAR_EEPROM_POS = 0;
 
-    BAR_EEPROM_POS = 0;
+  for(byte j = 0;j < 96; j++) {           
 
-    for(byte j = 0;j < 96; j++) {           
+    byte* pp = (byte*)(void*)&bmp085_data; 
 
-      byte* pp = (byte*)(void*)&bmp085_data; 
+    for (unsigned int i = 0; i < sizeof(bmp085_data); i++)
+      *pp++ = eeprom.readByte(BAR_EEPROM_POS++); 
 
-      for (unsigned int i = 0; i < sizeof(bmp085_data); i++)
-        *pp++ = eeprom.readByte(BAR_EEPROM_POS++); 
+    if ((now.unixtime() - bmp085_data.unix_time) < TWO_DAYS) {
 
-      if ((now.unixtime() - bmp085_data.unix_time) < TWO_DAYS) {
-
-        barArray[j] = bmp085_data.Press; 
-        bar_data.push(bmp085_data.Press);
-
-      } 
-      else {
-
-        barArray[j] = 0.0;
-
-      }
-
-    }
-
-    if (DEBUG) {
-      for(byte j=0;j<96;j++) Serial.println(barArray[j]);
-      Serial.println("===============");
-    }
-
-    BAR_EEPROM_POS = 0;
-
-    // barArray[0] = Pressure/133.3;  // Текущие значения  
-    // bar_data.push(Pressure/133.3);
-
-    int x_pos = 127;
-
-    for(byte j=0;j<96;j++) {
-
-      H = map(barArray[current_position],bar_data.minimum(),bar_data.maximum(),62,20);
-
-      display1.drawLine(x_pos,20,x_pos,62, BLACK); // Стереть линию
-
-      if (barArray[current_position] != 0.0) {     
-        display1.drawLine(x_pos,62,x_pos,H,WHITE); // Нарисовать данные    
-      }
-
-      if (current_position == 0) current_position = 96;
-
-      current_position--; 
-
-      x_pos--;
+      barArray[j] = bmp085_data.Press; 
+      bar_data.push(bmp085_data.Press);
 
     } 
+    else {
 
-  }  
+      barArray[j] = 0.0;
 
+    }
+
+  }
+
+  BAR_EEPROM_POS = 0;
+
+  int x_pos = 127;
+
+  for(byte j=0;j<96;j++) {
+
+    H = map(barArray[current_position],bar_data.minimum(),bar_data.maximum(),62,0);
+
+    // display1.drawLine(x_pos,20,x_pos,62, BLACK); // Стереть линию
+
+    if (barArray[current_position] != 0.0) {  
+      display1.drawLine(x_pos,62,x_pos,H,WHITE); // Нарисовать данные    
+    }
+
+    if (current_position == 0) current_position = 96;
+
+    current_position--; 
+
+    x_pos--;
+
+  } 
+
+  display1.display();
 }
 
 // ================================== Вывести Время и Восход и заход Солнца ===================
@@ -574,8 +579,8 @@ void Display_Time_SunRise(void ) {
     mySunrise.Actual();
 
     t = mySunrise.Rise(rtc.getMonth(),rtc.getDay()); // Month,Day
-    
-    if(t >= 0) {
+
+      if(t >= 0) {
       h_rise = mySunrise.Hour();
       m_rise = mySunrise.Minute();
     } 
@@ -585,8 +590,8 @@ void Display_Time_SunRise(void ) {
     }    
 
     t = mySunrise.Set(rtc.getMonth(),rtc.getDay()); // Month,Day
-   
-    if(t >= 0) {
+
+      if(t >= 0) {
       h_set = mySunrise.Hour();
       m_set = mySunrise.Minute();  
     } 
@@ -597,37 +602,37 @@ void Display_Time_SunRise(void ) {
 
   }
 
-  display.clearDisplay();
+  display0.clearDisplay();
 
-  display.cp437(true); // Для русских букв  
-  display.setTextSize(2);
-  display.setTextColor(WHITE);
-  display.setTextWrap(0);
-  display.fillRect(0,0,127,63,BLACK);
-  display.setTextColor(WHITE);
-  display.setCursor(0,0);
+  display0.cp437(true); // Для русских букв  
+  display0.setTextSize(2);
+  display0.setTextColor(WHITE);
+  display0.setTextWrap(0);
+  display0.fillRect(0,0,127,63,BLACK);
+  display0.setTextColor(WHITE);
+  display0.setCursor(0,0);
 
-  display.print(utf8rus("Зах: "));
-  display.print(toZero(h_set));
-  display.print(":");
-  display.println(toZero(m_set));
+  display0.print(utf8rus("Зах: "));
+  display0.print(toZero(h_set));
+  display0.print(":");
+  display0.println(toZero(m_set));
 
-  display.setTextSize(4);
-  display.print(toZero(rtc.getHour()));
+  display0.setTextSize(4);
+  display0.print(toZero(rtc.getHour()));
 
   if ((rtc.getSecond() % 2) == 0)
-    display.print(":");
-  else   display.print(" ");
+    display0.print(":");
+  else   display0.print(" ");
 
-  display.println(toZero(rtc.getMinute()));
+  display0.println(toZero(rtc.getMinute()));
 
-  display.setTextSize(2);
-  display.print(utf8rus("Вос: "));
-  display.print(toZero(h_rise));
-  display.print(":");
-  display.print(toZero(m_rise));
+  display0.setTextSize(2);
+  display0.print(utf8rus("Вос: "));
+  display0.print(toZero(h_rise));
+  display0.print(":");
+  display0.print(toZero(m_rise));
 
-  display.display();
+  display0.display();
 
 }
 // ==== добавляем ноль впереди для красоты 1:1 = 01:01 ==============
@@ -843,7 +848,7 @@ void Display_OLD_Compass( void ) {
   display4.drawCircle(96, 32, 30,WHITE);
 
   get_dir_print(1,10);      // Печать направления
-  
+
   display2.cp437(true);     // Для русских букв 
   display4.setTextSize(2);
   display4.setCursor(1,35);
@@ -885,7 +890,7 @@ void get_dir_print( int x, int y) {
     print_dir('W',x,y); 
     print_dir('N',x+15,y);  
   }
- 
+
 
 }
 
@@ -920,4 +925,5 @@ void draw_line( void ) {
   display4.drawCircle(xc,yc, 3,WHITE);
 
 }
+
 
