@@ -197,7 +197,14 @@ void setup() {
 
   display5.clearDisplay();
   display5.display();
-
+  
+/* display5.cp437(true); // Для русских букв  
+   display5.setTextSize(2);
+   display5.setTextColor(WHITE);
+   display5.setTextWrap(0);
+   display5.print(char(176));
+   display5.display();
+   while(1) {} */
 
   // Для стартовых значений
 
@@ -210,7 +217,6 @@ void setup() {
   bmp085_data.Temp  = Temperature/10.0;
 
   First = true;
-
 
 }
 
@@ -242,7 +248,6 @@ void loop() {
     Save_Bar_Data();
 
   }
-
 
   if (Serial1.available()) {
     nmea = Serial1.read();
@@ -493,14 +498,14 @@ void ShowBMP085( void ) {
   display1.drawFastVLine(30,0,63, WHITE);
   display1.drawFastHLine(30,63,97, WHITE);
 
+  display1.cp437(true);
   display1.setTextSize(1);
-  display1.setTextColor(WHITE);
   display1.setTextWrap(0);
   display1.setTextColor(WHITE);
   display1.setCursor(0,0);
   display1.print(int(bmp085_data.Temp)*-1);
-  display1.print(char(176));
-
+  display1.print(char(0xB0)); // 176
+  
   DateTime now = DateTime (rtc.getYear(), 
   rtc.getMonth(), 
   rtc.getDay(),
@@ -608,7 +613,6 @@ void Display_Time_SunRise(void ) {
   display0.setTextSize(2);
   display0.setTextColor(WHITE);
   display0.setTextWrap(0);
-  display0.fillRect(0,0,127,63,BLACK);
   display0.setTextColor(WHITE);
   display0.setCursor(0,0);
 
@@ -849,15 +853,14 @@ void Display_OLD_Compass( void ) {
 
   get_dir_print(1,10);      // Печать направления
 
-  display2.cp437(true);     // Для русских букв 
+  display4.cp437(true);     // Для русских букв 
   display4.setTextSize(2);
   display4.setCursor(1,35);
-  display4.print(round(get_compass())); // Печать азимута    
+  display4.print(round(get_compass())); // Печать азимута   
   display4.print(char(176)); // Печатаем значок градуса
 
-  draw_line();//U8GLIB_SSD1306_128X64 u8g(13, 11, 10, 9);	// SW SPI Com: SCK = 13, MOSI = 11, CS = 10, A0 = 9
-
-
+  draw_line();
+  
   pc = north - 180; 
   if (pc > 360) pc = north - 180;
 
