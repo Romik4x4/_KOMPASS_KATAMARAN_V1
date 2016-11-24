@@ -67,6 +67,13 @@ MPU6050 mpu;
 float heading1;
 float heading2;
 
+struct config_t
+{
+    long alarm;
+    int mode;
+} configuration;
+// EEPROM_readAnything(0, configuration);
+// EEPROM_writeAnything(0, configuration);
 // ----------------------- BMP085 ---------------------------------
 
 struct bmp085_t // Данные о давлении,высоте и температуре
@@ -77,16 +84,6 @@ struct bmp085_t // Данные о давлении,высоте и темпер
 } 
 bmp085_data;
 
-struct bmp085_out // Данные о давлении,высоте и температуре
-{    
-  double Press,Alt,Temp;
-  unsigned long unix_time; 
-
-} 
-bmp085_data_out;
-
-
-
 unsigned long currentMillis;
 unsigned long PreviousInterval = 0;  
 unsigned long onePreviousInterval = 0; 
@@ -95,7 +92,13 @@ unsigned long barPreviousInterval = 0;
 TinyGPSPlus gps;  // GPS Serial(1)4800
 char nmea;        // NMEA input
 
-Rtc_Pcf8563 rtc;  // PCF8563
+Rtc_Pcf8563 rtc;       // PCF8563
+RTC_Millis  rtc_local; 
+
+// rtc.begin(DateTime(F(__DATE__), F(__TIME__))); 
+// rtc.adjust(DateTime(2015, 1, 1, 0, 0, 0));
+//  DateTime now = rtc.now();
+// now.hour()
 
 BMP085 bmp = BMP085();  // BMP085
 
@@ -167,7 +170,7 @@ void setup() {
   offX = (maxX + minX)/2;
   offY = (maxY + minY)/2;
 
-  compass.setOffset(offX, offY);
+  // compass.setOffset(offX, offY);
 
   // rtc.initClock();  // Erase Clock
 
@@ -503,8 +506,14 @@ void ShowBMP085( void ) {
   display1.setTextWrap(0);
   display1.setTextColor(WHITE);
   display1.setCursor(0,0);
-  display1.print(int(bmp085_data.Temp)*-1);
-  display1.print(char(0xB0)); // 176
+  display1.println("temp");  
+  display1.println(" ");    
+  display1.print(int(bmp085_data.Temp));   
+  display1.println(char(176)); // 176  
+  display1.println(" ");    
+  display1.println(utf8rus("Дав"));
+  display1.println(" ");    
+  display1.println(int(bmp085_data.Press)); 
   
   DateTime now = DateTime (rtc.getYear(), 
   rtc.getMonth(), 
@@ -667,13 +676,15 @@ void Display_Compass(void) {
   display2.setCursor(0,0);
 
   display2.setTextSize(2);
-  display2.println(utf8rus("Компас"));
-
+  display2.println(utf8rus("Компас COG"));
+  display2.setTextSize(2);
+  display2.println(" ");
   display2.setTextSize(4);
   north = round(get_compass());
   north = getcompasscourse();  // Не то
   north = round(Tcompass());
   display2.print(north);
+  display2.println(char(176));  
   display2.display(); 
 
 }
@@ -847,8 +858,6 @@ void Display_OLD_Compass( void ) {
 
   display4.clearDisplay();
 
-  display4.fillRect(0,0,127,63,BLACK);
-
   display4.drawCircle(96, 32, 30,WHITE);
 
   get_dir_print(1,10);      // Печать направления
@@ -867,7 +876,7 @@ void Display_OLD_Compass( void ) {
   xc = 96 - (29 * cos(pc*(3.14/180)));
   yc = 32 -(29 * sin(pc*(3.14/180)));
 
-  display4.drawCircle(xc,yc, 3,WHITE);
+  display4.drawCircle(xc,yc,3,WHITE);
 
   display4.display();
 
@@ -877,6 +886,10 @@ void get_dir_print( int x, int y) {
 
   int z = round(get_compass());
 
+  if (z == 0)       { 
+    print_dir('N',x,y);  
+  }
+    
   if (z > 0 & z < 90)       { 
     print_dir('N',x,y);  
     print_dir('E',x+15,y);  
@@ -899,13 +912,15 @@ void get_dir_print( int x, int y) {
 
 void print_dir(char a, int x, int y) {
 
+  display4.cp437(true);
+  display4.fillRect(x,y,34,34,BLACK);
   display4.setTextSize(2);
   display4.setTextColor(WHITE);
   display4.setCursor(x,y);
-  if (a=='N') display4.print("N");
-  if (a=='S') display4.print("S"); 
-  if (a=='E') display4.print("E");   
-  if (a=='W') display4.print("W");  
+  if (a=='N') display4.print(utf8rus("С"));
+  if (a=='S') display4.print(utf8rus("Ю")); 
+  if (a=='E') display4.print(utf8rus("В"));   
+  if (a=='W') display4.print(utf8rus("З"));  
 
 }
 
