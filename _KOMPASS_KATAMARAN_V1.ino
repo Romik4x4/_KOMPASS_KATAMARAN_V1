@@ -30,8 +30,6 @@
 #include <Rtc_Pcf8563.h>
 #include <HMC5883L.h>
 #include <MPU6050.h>
-#include <OneWire.h>
-#include <DallasTemperature.h>
 
 #define OLED_MOSI   5
 #define OLED_CLK    7
@@ -52,17 +50,6 @@ Adafruit_SSD1306 display5(OLED_MOSI, OLED_CLK, A7,23,A6);
 #define LED 23 //  Do not Usage !!!
 #define UTC 3
 
-#define ONE_WIRE_BUS A4  // A4
-#define TEMPERATURE_PRECISION 9
-
-OneWire oneWire(ONE_WIRE_BUS);
-DallasTemperature sensors(&oneWire);
-DeviceAddress Thermometer = { 0x10, 0x9C, 0x92, 0xDD, 0x01, 0x08, 0x00, 0x42 };
-float tempC;
-
-// 10 9C 92 DD 01 08 00 42
-
-
 unsigned long BAR_EEPROM_POS = 0;
 
 #define EEPROM_ADDRESS      (0x50) // 24LC512
@@ -82,9 +69,10 @@ float heading2;
 
 struct config_t
 {
-    long alarm;
-    int mode;
-} configuration;
+  long alarm;
+  int mode;
+} 
+configuration;
 // EEPROM_readAnything(0, configuration);
 // EEPROM_writeAnything(0, configuration);
 // ----------------------- BMP085 ---------------------------------
@@ -101,16 +89,18 @@ unsigned long currentMillis;
 unsigned long PreviousInterval = 0;  
 unsigned long onePreviousInterval = 0; 
 unsigned long barPreviousInterval = 0;
+unsigned long compassPreviousInterval = 0;
+
 
 TinyGPSPlus gps;  // GPS Serial(1)4800
-char nmea;        // NMEA input
 
 Rtc_Pcf8563 rtc;       // PCF8563
+
 RTC_Millis  rtc_local; 
 
 // rtc.begin(DateTime(F(__DATE__), F(__TIME__))); 
 // rtc.adjust(DateTime(2015, 1, 1, 0, 0, 0));
-//  DateTime now = rtc.now();
+// DateTime now = rtc.now();
 // now.hour()
 
 BMP085 bmp = BMP085();  // BMP085
@@ -126,10 +116,9 @@ long gps_count = 0;
 void setup() {
 
   Serial.begin(9600);   // Debug
-  // pinMode(LED, OUTPUT);  // LED
   Serial1.begin(4800);  // GPS
 
-  display0.begin();       // Turn On Display
+  display0.begin();      // Turn On Display
   display1.begin();      // Turn On Display
   display2.begin();      // Turn On Display
   display3.begin();      // Turn On Display
@@ -139,9 +128,6 @@ void setup() {
   Wire.begin();
   delay(500);
 
-  sensors.begin();
-  sensors.setResolution(Thermometer, TEMPERATURE_PRECISION);
-  
   bmp.init();  
 
   mpu.begin(MPU6050_SCALE_2000DPS, MPU6050_RANGE_2G);
@@ -193,7 +179,7 @@ void setup() {
   rtc.setSquareWave(SQW_1HZ);
 
   // rtc.clearSquareWave();
-
+  //
   // day, weekday, month, century(1=1900, 0=2000), year(0-99)
   //  rtc.setDate(10, 4, 11, 0, 16);
   // hr, min, sec
@@ -216,8 +202,8 @@ void setup() {
 
   display5.clearDisplay();
   display5.display();
-  
-/* display5.cp437(true); // Для русских букв  
+
+  /* display5.cp437(true); // Для русских букв  
    display5.setTextSize(2);
    display5.setTextColor(WHITE);
    display5.setTextWrap(0);
@@ -236,10 +222,7 @@ void setup() {
   bmp085_data.Temp  = Temperature/10.0;
 
   First = true;
-
-  sensors.requestTemperatures(); 
-  tempC = sensors.getTempC(Thermometer);
-  bmp085_data.Temp = tempC;
+  
 }
 
 // ================================ Main =====================================
@@ -259,51 +242,70 @@ void loop() {
   if(currentMillis - PreviousInterval > (FIVE_MINUT*3) ) {  // 15 Минут Save BAR to EEPROM
     PreviousInterval = currentMillis;  
 
+    set_GPS_DateTime();
+
     bmp.getTemperature(&Temperature);  // Температура
+    bmp.getPressure(&Pressure);        // Давление
     bmp.getAltitude(&Altitude);        // Высота 
 
-    bmp085_data.Press = 0;
-    for(int i=0;i<20;i++) {
-      bmp.getPressure(&Pressure);
-      bmp085_data.Press = bmp085_data.Press + Pressure;
-    }
-
-    bmp085_data.Press = Pressure/20/133.3;
-    
+    bmp085_data.Press = Pressure/133.3;
     bmp085_data.Alt   = Altitude/100.0;
     bmp085_data.Temp  = Temperature/10.0;
-    
-    sensors.requestTemperatures(); 
-    tempC = sensors.getTempC(Thermometer);
-    bmp085_data.Temp = tempC;
 
     Save_Bar_Data();
 
   }
 
   if (Serial1.available()) {
-    nmea = Serial1.read();
-    gps.encode(nmea);
-    // Serial.print(nmea);
+    gps.encode(Serial1.read());
   }
 
-  if(currentMillis - onePreviousInterval > 500 ) {  // 1 Секунда = 1000
+  if(currentMillis - compassPreviousInterval > 200) {  // 1 Секунда = 1000
+    compassPreviousInterval = currentMillis;  
+     Display_OLD_Compass();        // Dislay 4   
+  }
+
+
+  if(currentMillis - onePreviousInterval > 1000) {  // 1 Секунда = 1000
     onePreviousInterval = currentMillis;  
 
     Display_GPS();              // Display 5
     Display_Test();            // Display 1 - Барометр
     Display_Time_SunRise();    // Display 0
     Display_Compass();         // Display 2
-    Display_OLD_Compass();        // Dislay 4
     Display_Uroven();              // Display 3
 
-    // if (digitalRead(LED) == 1) digitalWrite(LED,LOW); 
-    // else digitalWrite(LED,HIGH);
   }
 
 }
 
 // =============================== Functions ================================
+
+void set_GPS_DateTime() {
+   
+ if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid()) {
+
+   DateTime utc = (DateTime (gps.date.year(), 
+                             gps.date.month(), 
+                             gps.date.day(),
+                             gps.time.hour(),
+                             gps.time.minute(),
+                             gps.time.second()) + 60 * 60 * UTC);
+                                
+                                 rtc.setSquareWave(SQW_1HZ);
+
+  rtc.clearSquareWave();
+  
+  rtc.initClock();
+  rtc.setDate(gps.date.day(),1,gps.date.month(),0,gps.date.year()-2000);
+  rtc.setTime(gps.time.hour()+UTC,gps.time.minute(), gps.time.second());
+  
+  rtc.setSquareWave(SQW_1HZ);
+
+ }
+  
+}
+
 
 void Display_Uroven( void ) {
 
@@ -343,8 +345,8 @@ void Display_Uroven( void ) {
 
 void Display_GPS( void ) {
 
-  gps_count = gps.satellites.value();
-
+  gps_count =  gps.satellites.value();
+  
   display5.clearDisplay();
 
   display5.cp437(true); // Для русских букв  
@@ -355,21 +357,21 @@ void Display_GPS( void ) {
   display5.setTextColor(WHITE);
   display5.setCursor(0,0);
 
-  if (gps_count < 3) {
-    display5.println(utf8rus("Поиск"));
-    display5.setTextSize(4);
-    display5.println(gps_count);
-    display5.setTextSize(2);
-    display5.println(utf8rus("Спутников"));
-  } 
-  else {
+  if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid()) {
     display5.println(gps.location.lat(), 6);  // Широта
     display5.println(gps.location.lng(), 6);  // Долгота      
     display5.print("COG:"); 
     display5.println(gps.course.deg());
     display5.print(utf8rus("км/ч:")); 
     display5.print(gps.speed.kmph());
-  }
+  } 
+  else  {
+    display5.println(utf8rus("Поиск"));
+    display5.setTextSize(4);
+    display5.println(gps_count);
+    display5.setTextSize(2);
+    display5.println(utf8rus("Спутников"));
+  } 
 
   display5.display();
 
@@ -418,7 +420,7 @@ String utf8rus(String source)
   String target;
   unsigned char n;
   char m[2] = {
-    '0', '\0'    };
+    '0', '\0'        };
 
   k = source.length(); 
   i = 0;
@@ -508,18 +510,41 @@ void Save_Bar_Data( void ) {
   }
 
   BAR_EEPROM_POS = ( (bmp085_data.unix_time/1800)%96 ) * sizeof(bmp085_data); // Номер ячейки памяти.
-
+  
+  unsigned long OLD = BAR_EEPROM_POS;
+  
   bmp085_data.Press = Pressure/133.3;
   bmp085_data.Alt   = Altitude/100.0;
   bmp085_data.Temp  = Temperature/10.0;
-  
-  sensors.requestTemperatures(); 
-  tempC = sensors.getTempC(Thermometer);
-  bmp085_data.Temp = tempC;
+
+  if (DEBUG) {
+      Serial.println( "Data to Write ");
+      Serial.println( BAR_EEPROM_POS );
+      Serial.println( bmp085_data.Press);
+      Serial.println( bmp085_data.Alt );
+      Serial.println( bmp085_data.Temp );
+      Serial.println( bmp085_data.unix_time );
+  }
 
   const byte* p = (const byte*)(const void*)&bmp085_data;
   for (unsigned int i = 0; i < sizeof(bmp085_data); i++) 
     eeprom.writeByte(BAR_EEPROM_POS++,*p++);
+
+  if (DEBUG) {
+
+    BAR_EEPROM_POS = OLD;
+  
+    byte* pp = (byte*)(void*)&bmp085_data; 
+    for (unsigned int i = 0; i < sizeof(bmp085_data); i++)
+      *pp++ = eeprom.readByte(BAR_EEPROM_POS++); 
+
+      Serial.println( "Data to Read");
+      Serial.println( OLD );      
+      Serial.println( bmp085_data.Press);
+      Serial.println( bmp085_data.Alt );
+      Serial.println( bmp085_data.Temp );
+      Serial.println( bmp085_data.unix_time );
+  }
 
 }
 
@@ -530,11 +555,8 @@ void ShowBMP085( void ) {
 
   int H;
 
-  sensors.requestTemperatures(); 
-  tempC = sensors.getTempC(Thermometer);
-  bmp085_data.Temp = tempC;
-  
   display1.clearDisplay();
+  
   display1.drawFastVLine(30,0,63, WHITE);
   display1.drawFastHLine(30,63,97, WHITE);
 
@@ -551,7 +573,7 @@ void ShowBMP085( void ) {
   display1.println(utf8rus("Дав"));
   display1.println(" ");    
   display1.println(int(bmp085_data.Press)); 
-  
+
   DateTime now = DateTime (rtc.getYear(), 
   rtc.getMonth(), 
   rtc.getDay(),
@@ -581,9 +603,7 @@ void ShowBMP085( void ) {
 
     } 
     else {
-
       barArray[j] = 0.0;
-
     }
 
   }
@@ -595,8 +615,6 @@ void ShowBMP085( void ) {
   for(byte j=0;j<96;j++) {
 
     H = map(barArray[current_position],bar_data.minimum(),bar_data.maximum(),62,0);
-
-    // display1.drawLine(x_pos,20,x_pos,62, BLACK); // Стереть линию
 
     if (barArray[current_position] != 0.0) {  
       display1.drawLine(x_pos,62,x_pos,H,WHITE); // Нарисовать данные    
@@ -892,10 +910,6 @@ float Tcompass (void) {
 void Display_OLD_Compass( void ) {
 
   north  = round(get_compass());
-  
-  sensors.requestTemperatures(); 
-  tempC = sensors.getTempC(Thermometer);
-  bmp085_data.Temp = tempC;
 
   display4.clearDisplay();
 
@@ -910,7 +924,7 @@ void Display_OLD_Compass( void ) {
   display4.print(char(176)); // Печатаем значок градуса
 
   draw_line();
-  
+
   pc = north - 180; 
   if (pc > 360) pc = north - 180;
 
@@ -919,16 +933,6 @@ void Display_OLD_Compass( void ) {
 
   display4.drawCircle(xc,yc,3,WHITE);
 
-
-  display4.cp437(true);
-  display4.setTextSize(1);
-  display4.setTextWrap(0);
-  display4.setTextColor(WHITE);
-  display4.setCursor(0,52);
-  display4.print("temp: ");
-  display4.print(int(bmp085_data.Temp));   
-  display4.print(char(176)); 
-  
   display4.display();
 
 }
@@ -940,7 +944,7 @@ void get_dir_print( int x, int y) {
   if (z == 0)       { 
     print_dir('N',x,y);  
   }
-    
+
   if (z > 0 & z < 90)       { 
     print_dir('N',x,y);  
     print_dir('E',x+15,y);  
@@ -995,4 +999,47 @@ void draw_line( void ) {
 
 }
 
+
+
+void i2scanner()
+{
+  byte error, address;
+  int nDevices;
+
+  Serial.println("Scanning...");
+
+  nDevices = 0;
+  for(address = 1; address < 127; address++ ) 
+  {
+    // The i2c_scanner uses the return value of
+    // the Write.endTransmisstion to see if
+    // a device did acknowledge to the address.
+    Wire.beginTransmission(address);
+    error = Wire.endTransmission();
+
+    if (error == 0)
+    {
+      Serial.print("I2C device found at address 0x");
+      if (address<16) 
+        Serial.print("0");
+      Serial.print(address,HEX);
+      Serial.println("  !");
+
+      nDevices++;
+    }
+    else if (error==4) 
+    {
+      Serial.print("Unknow error at address 0x");
+      if (address<16) 
+        Serial.print("0");
+      Serial.println(address,HEX);
+    }    
+  }
+  if (nDevices == 0)
+    Serial.println("No I2C devices found\n");
+  else
+    Serial.println("done\n");
+
+  delay(5000);           // wait 5 seconds for next scan
+}
 
