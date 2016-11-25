@@ -260,10 +260,16 @@ void loop() {
     PreviousInterval = currentMillis;  
 
     bmp.getTemperature(&Temperature);  // Температура
-    bmp.getPressure(&Pressure);        // Давление
     bmp.getAltitude(&Altitude);        // Высота 
 
-    bmp085_data.Press = Pressure/133.3;
+    bmp085_data.Press = 0;
+    for(int i=0;i<20;i++) {
+      bmp.getPressure(&Pressure);
+      bmp085_data.Press = bmp085_data.Press + Pressure;
+    }
+
+    bmp085_data.Press = Pressure/20/133.3;
+    
     bmp085_data.Alt   = Altitude/100.0;
     bmp085_data.Temp  = Temperature/10.0;
     
