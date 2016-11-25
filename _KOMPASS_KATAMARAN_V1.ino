@@ -30,6 +30,8 @@
 #include <Rtc_Pcf8563.h>
 #include <HMC5883L.h>
 #include <MPU6050.h>
+#include <OneWire.h>
+#include <DallasTemperature.h>
 
 #define OLED_MOSI   5
 #define OLED_CLK    7
@@ -49,6 +51,17 @@ Adafruit_SSD1306 display5(OLED_MOSI, OLED_CLK, A7,23,A6);
 #define DEBUG 0
 #define LED 23 //  Do not Usage !!!
 #define UTC 3
+
+#define ONE_WIRE_BUS A4  // A4
+#define TEMPERATURE_PRECISION 9
+
+OneWire oneWire(ONE_WIRE_BUS);
+DallasTemperature sensors(&oneWire);
+DeviceAddress Thermometer = { 0x10, 0x9C, 0x92, 0xDD, 0x01, 0x08, 0x00, 0x42 };
+float tempC;
+
+// 10 9C 92 DD 01 08 00 42
+
 
 unsigned long BAR_EEPROM_POS = 0;
 
@@ -126,6 +139,9 @@ void setup() {
   Wire.begin();
   delay(500);
 
+  sensors.begin();
+  sensors.setResolution(Thermometer, TEMPERATURE_PRECISION);
+  
   bmp.init();  
 
   mpu.begin(MPU6050_SCALE_2000DPS, MPU6050_RANGE_2G);
@@ -221,6 +237,9 @@ void setup() {
 
   First = true;
 
+  sensors.requestTemperatures(); 
+  tempC = sensors.getTempC(Thermometer);
+  bmp085_data.Temp = tempC;
 }
 
 // ================================ Main =====================================
@@ -247,6 +266,10 @@ void loop() {
     bmp085_data.Press = Pressure/133.3;
     bmp085_data.Alt   = Altitude/100.0;
     bmp085_data.Temp  = Temperature/10.0;
+    
+    sensors.requestTemperatures(); 
+    tempC = sensors.getTempC(Thermometer);
+    bmp085_data.Temp = tempC;
 
     Save_Bar_Data();
 
@@ -483,6 +506,10 @@ void Save_Bar_Data( void ) {
   bmp085_data.Press = Pressure/133.3;
   bmp085_data.Alt   = Altitude/100.0;
   bmp085_data.Temp  = Temperature/10.0;
+  
+  sensors.requestTemperatures(); 
+  tempC = sensors.getTempC(Thermometer);
+  bmp085_data.Temp = tempC;
 
   const byte* p = (const byte*)(const void*)&bmp085_data;
   for (unsigned int i = 0; i < sizeof(bmp085_data); i++) 
@@ -497,6 +524,10 @@ void ShowBMP085( void ) {
 
   int H;
 
+  sensors.requestTemperatures(); 
+  tempC = sensors.getTempC(Thermometer);
+  bmp085_data.Temp = tempC;
+  
   display1.clearDisplay();
   display1.drawFastVLine(30,0,63, WHITE);
   display1.drawFastHLine(30,63,97, WHITE);
@@ -855,6 +886,10 @@ float Tcompass (void) {
 void Display_OLD_Compass( void ) {
 
   north  = round(get_compass());
+  
+  sensors.requestTemperatures(); 
+  tempC = sensors.getTempC(Thermometer);
+  bmp085_data.Temp = tempC;
 
   display4.clearDisplay();
 
@@ -878,6 +913,16 @@ void Display_OLD_Compass( void ) {
 
   display4.drawCircle(xc,yc,3,WHITE);
 
+
+  display4.cp437(true);
+  display4.setTextSize(1);
+  display4.setTextWrap(0);
+  display4.setTextColor(WHITE);
+  display4.setCursor(0,52);
+  display4.print("temp: ");
+  display4.print(int(bmp085_data.Temp));   
+  display4.print(char(176)); 
+  
   display4.display();
 
 }
