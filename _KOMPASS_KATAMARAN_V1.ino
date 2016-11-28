@@ -1043,3 +1043,106 @@ void i2scanner()
   delay(5000);           // wait 5 seconds for next scan
 }
 
+// GPS Filter
+
+
+#define _HORISONTAL_ACCURACY_RATIO_LIMIT        5.0
+#define _PSI_CONSTANT                           (0.03239391 / 3600.0)
+
+static const uint32_t HIFunc[91] PROGMEM = {
+    1023702460, 1023703774, 1023707716, 1023714294, 1023723516, 1023735398, 1023749958, 1023767217, 1023787204, 1023809949,
+    1023835487, 1023863860, 1023895112, 1023929294, 1023966461, 1024006674, 1024049998, 1024096508, 1024146280, 1024199401,
+    1024255963, 1024316064, 1024379813, 1024447325, 1024518724, 1024594145, 1024673731, 1024757637, 1024846031, 1024939090,
+    1025037008, 1025139991, 1025248263, 1025362063, 1025481651, 1025607304, 1025739325, 1025878038, 1026023793, 1026176972,
+    1026337985, 1026507280, 1026685341, 1026872697, 1027069921, 1027277640, 1027496540, 1027727371, 1027970954, 1028228194,
+    1028500086, 1028787729, 1029092337, 1029415259, 1029757994, 1030122211, 1030509781, 1030922798, 1031363624, 1031816853,
+    1032069249, 1032340111, 1032631406, 1032945391, 1033284672, 1033652271, 1034051716, 1034487150, 1034963466, 1035486494,
+    1036063227, 1036702134, 1037413566, 1038210307, 1039108342, 1040127918, 1040741229, 1041415612, 1042203499, 1043135839,
+    1044255964, 1045626460, 1047341212, 1049061876, 1050533983, 1052596225, 1055691202, 1058908126, 1064070175, 1072456375,
+1287568416};
+union u32double {
+    uint32_t u;
+    double d;
+};
+
+#define    NOT_RUNNING 0
+#define    BAD_SIGNAL  1
+#define    SIGNAL_LOST  2
+#define    HDOP_EXCEEDED  3
+#define    DATA_REJECTED  4
+#define    DATA_GOOD  5
+#define    LAT_ACCURACY_INCREASED  6
+#define    LON_ACCURACY_INCREASED  7
+#define    ACCEPTED_FIXED  8
+#define    ACCEPTED_UPDATED  9
+
+double _lastLat;
+double _lastLon;
+double _lastLatHACC;
+double _lastLonHACC;
+byte  _filterState = NOT_RUNNING;
+
+byte smoothingFilter(double lat, double lon, double hdop) {
+    u32double conv;
+    if (_filterState == NOT_RUNNING) {
+        _filterState = ACCEPTED_UPDATED;
+        _lastLat = lat;
+        _lastLon = lon;
+        _lastLatHACC = _PSI_CONSTANT * hdop * _HORISONTAL_ACCURACY_RATIO_LIMIT;
+        uint8_t pos;
+        if (lat < 0) pos = -lat; else pos = lat;
+        // drive the index value to the given bounds 0..90
+        while (pos > 90) pos -= 90;
+        conv.u = pgm_read_dword_near(HIFunc + pos);
+        _lastLonHACC = conv.d * hdop * _HORISONTAL_ACCURACY_RATIO_LIMIT / 3600;
+    } else {
+        double deltaLat = fabs(lat - _lastLat);
+        double LatHACC = _PSI_CONSTANT * hdop * _HORISONTAL_ACCURACY_RATIO_LIMIT;
+        if (deltaLat > LatHACC + _lastLatHACC) {
+            // GOOD data
+            _filterState = ACCEPTED_UPDATED;
+            _lastLatHACC = LatHACC;
+            _lastLat = lat;
+            _lastLon = lon;
+        } else {
+            if (LatHACC < _lastLatHACC) {
+                // GOOD data: accuracy increased
+                _filterState = LAT_ACCURACY_INCREASED;
+                _lastLatHACC = LatHACC;
+                _lastLat = lat;
+                _lastLon = lon;
+            } else {
+                uint8_t pos;
+                if (lat < 0) pos = -lat; else pos = lat;
+                // drive the index value to the given bounds 0..90
+                while (pos > 90) pos -= 90;
+                conv.u = pgm_read_dword_near(HIFunc + pos);
+                double deltaLon = fabs(lon - _lastLon);
+                double LonHACC = conv.d * hdop * _HORISONTAL_ACCURACY_RATIO_LIMIT / 3600;
+                if (deltaLon > LonHACC + _lastLonHACC) {
+                    // GOOD data
+                    _filterState = ACCEPTED_UPDATED;
+                    _lastLatHACC = LatHACC;
+                    _lastLat = lat;
+                    _lastLon = lon;
+                } else {
+                    if (LatHACC < _lastLatHACC) {
+                        // GOOD data: accuracy increased
+                        _filterState = LON_ACCURACY_INCREASED;
+                        _lastLonHACC = LonHACC;
+                        _lastLat = lat;
+                        _lastLon = lon;
+                    } else {
+                        // BAD data: poor accuracy
+                        _filterState = DATA_REJECTED;
+                    }
+                }
+            }
+        }
+    }
+    if (_filterState > DATA_GOOD) {
+        // GOOD data
+    }
+    return _filterState;
+}
+
