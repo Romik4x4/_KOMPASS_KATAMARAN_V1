@@ -259,8 +259,8 @@ void loop() {
   if (Serial1.available()) {
     gps.encode(Serial1.read());
   }
-
-  if(currentMillis - compassPreviousInterval > 200) {  // 1 Секунда = 1000
+  
+  if(currentMillis - compassPreviousInterval > 500) {  // 1 Секунда = 1000
     compassPreviousInterval = currentMillis;  
      Display_OLD_Compass();        // Dislay 4   
   }
