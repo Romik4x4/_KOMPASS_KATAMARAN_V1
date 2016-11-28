@@ -999,14 +999,14 @@ void draw_line( void ) {
 
 }
 
-
+// I2C Scanner
 
 void i2scanner()
 {
   byte error, address;
   int nDevices;
 
-  Serial.println("Scanning...");
+  Serial.println(F("Scanning..."));
 
   nDevices = 0;
   for(address = 1; address < 127; address++ ) 
@@ -1019,7 +1019,7 @@ void i2scanner()
 
     if (error == 0)
     {
-      Serial.print("I2C device found at address 0x");
+      Serial.print(F("I2C device found at address 0x"));
       if (address<16) 
         Serial.print("0");
       Serial.print(address,HEX);
@@ -1029,16 +1029,16 @@ void i2scanner()
     }
     else if (error==4) 
     {
-      Serial.print("Unknow error at address 0x");
+      Serial.print(F("Unknow error at address 0x"));
       if (address<16) 
         Serial.print("0");
       Serial.println(address,HEX);
     }    
   }
   if (nDevices == 0)
-    Serial.println("No I2C devices found\n");
+    Serial.println(F("No I2C devices found\n"));
   else
-    Serial.println("done\n");
+    Serial.println(F("done\n"));
 
   delay(5000);           // wait 5 seconds for next scan
 }
