@@ -31,6 +31,7 @@
 #include <HMC5883L.h>
 #include <MPU6050.h>
 
+
 #define OLED_MOSI   5
 #define OLED_CLK    7
 #define OLED_CS     2
@@ -49,6 +50,45 @@ Adafruit_SSD1306 display5(OLED_MOSI, OLED_CLK, A7,23,A6);
 #define DEBUG 0
 #define LED 23 //  Do not Usage !!!
 #define UTC 3
+
+#define _HORISONTAL_ACCURACY_RATIO_LIMIT        5.0
+#define _PSI_CONSTANT                           (0.03239391 / 3600.0)
+
+static const uint32_t HIFunc[91] PROGMEM = {
+  1023702460, 1023703774, 1023707716, 1023714294, 1023723516, 1023735398, 1023749958, 1023767217, 1023787204, 1023809949,
+  1023835487, 1023863860, 1023895112, 1023929294, 1023966461, 1024006674, 1024049998, 1024096508, 1024146280, 1024199401,
+  1024255963, 1024316064, 1024379813, 1024447325, 1024518724, 1024594145, 1024673731, 1024757637, 1024846031, 1024939090,
+  1025037008, 1025139991, 1025248263, 1025362063, 1025481651, 1025607304, 1025739325, 1025878038, 1026023793, 1026176972,
+  1026337985, 1026507280, 1026685341, 1026872697, 1027069921, 1027277640, 1027496540, 1027727371, 1027970954, 1028228194,
+  1028500086, 1028787729, 1029092337, 1029415259, 1029757994, 1030122211, 1030509781, 1030922798, 1031363624, 1031816853,
+  1032069249, 1032340111, 1032631406, 1032945391, 1033284672, 1033652271, 1034051716, 1034487150, 1034963466, 1035486494,
+  1036063227, 1036702134, 1037413566, 1038210307, 1039108342, 1040127918, 1040741229, 1041415612, 1042203499, 1043135839,
+  1044255964, 1045626460, 1047341212, 1049061876, 1050533983, 1052596225, 1055691202, 1058908126, 1064070175, 1072456375,
+  1287568416};
+union u32double {
+  uint32_t u;
+  double d;
+};
+
+static const byte  PROGMEM NOT_RUNNING = 0;
+static const byte  PROGMEM BAD_SIGNAL = 1;
+static const byte  PROGMEM SIGNAL_LOST = 2;
+static const byte  PROGMEM HDOP_EXCEEDED = 3;
+static const byte  PROGMEM DATA_REJECTED = 4;
+static const byte  PROGMEM DATA_GOOD = 5;
+static const byte  PROGMEM LAT_ACCURACY_INCREASED = 6;
+static const byte  PROGMEM LON_ACCURACY_INCREASED = 7;
+static const byte  PROGMEM ACCEPTED_FIXED  = 8;
+static const byte  PROGMEM ACCEPTED_UPDATED  = 9;
+
+double _lastLat;
+double _lastLon;
+double _lastLatHACC;
+double _lastLonHACC;
+
+byte  _filterState = NOT_RUNNING;
+
+// ------------------------------------------------------------- for GPS Filter --------------------------
 
 unsigned long BAR_EEPROM_POS = 0;
 
@@ -90,9 +130,12 @@ unsigned long PreviousInterval = 0;
 unsigned long onePreviousInterval = 0; 
 unsigned long barPreviousInterval = 0;
 unsigned long compassPreviousInterval = 0;
+unsigned long gpsPreviousInterval = 0;
 
 
 TinyGPSPlus gps;  // GPS Serial(1)4800
+
+TinyGPSCustom mHDOP(gps, "GPGGA", 8);
 
 Rtc_Pcf8563 rtc;       // PCF8563
 
@@ -222,7 +265,7 @@ void setup() {
   bmp085_data.Temp  = Temperature/10.0;
 
   First = true;
-  
+
 }
 
 // ================================ Main =====================================
@@ -259,17 +302,20 @@ void loop() {
   if (Serial1.available()) {
     gps.encode(Serial1.read());
   }
-  
-  if(currentMillis - compassPreviousInterval > 500) {  // 1 Секунда = 1000
-    compassPreviousInterval = currentMillis;  
-     Display_OLD_Compass();        // Dislay 4   
+
+  if(currentMillis - gpsPreviousInterval > 2000) {  // 1 Секунда = 1000
+    gpsPreviousInterval = currentMillis;        
+    Display_GPS(); 
   }
 
+  if(currentMillis - compassPreviousInterval > 500) {  // 1 Секунда = 1000
+    compassPreviousInterval = currentMillis;  
+    Display_OLD_Compass();        // Dislay 4   
+  }
 
   if(currentMillis - onePreviousInterval > 1000) {  // 1 Секунда = 1000
     onePreviousInterval = currentMillis;  
 
-    Display_GPS();              // Display 5
     Display_Test();            // Display 1 - Барометр
     Display_Time_SunRise();    // Display 0
     Display_Compass();         // Display 2
@@ -282,28 +328,28 @@ void loop() {
 // =============================== Functions ================================
 
 void set_GPS_DateTime() {
-   
- if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid()) {
 
-   DateTime utc = (DateTime (gps.date.year(), 
-                             gps.date.month(), 
-                             gps.date.day(),
-                             gps.time.hour(),
-                             gps.time.minute(),
-                             gps.time.second()) + 60 * 60 * UTC);
-                                
-                                 rtc.setSquareWave(SQW_1HZ);
+  if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid()) {
 
-  rtc.clearSquareWave();
-  
-  rtc.initClock();
-  rtc.setDate(gps.date.day(),1,gps.date.month(),0,gps.date.year()-2000);
-  rtc.setTime(gps.time.hour()+UTC,gps.time.minute(), gps.time.second());
-  
-  rtc.setSquareWave(SQW_1HZ);
+    DateTime utc = (DateTime (gps.date.year(), 
+    gps.date.month(), 
+    gps.date.day(),
+    gps.time.hour(),
+    gps.time.minute(),
+    gps.time.second()) + 60 * 60 * UTC);
 
- }
-  
+    rtc.setSquareWave(SQW_1HZ);
+
+    rtc.clearSquareWave();
+
+    rtc.initClock();
+    rtc.setDate(gps.date.day(),1,gps.date.month(),0,gps.date.year()-2000);
+    rtc.setTime(gps.time.hour()+UTC,gps.time.minute(), gps.time.second());
+
+    rtc.setSquareWave(SQW_1HZ);
+
+  }
+
 }
 
 
@@ -316,8 +362,6 @@ void Display_Uroven( void ) {
 
   int pitch = -(atan2(normAccel.XAxis, sqrt(normAccel.YAxis*normAccel.YAxis + normAccel.ZAxis*normAccel.ZAxis))*180.0)/M_PI;
   int roll = (atan2(normAccel.YAxis, normAccel.ZAxis)*180.0)/M_PI;
-
-  display3.fillRect(0,0,127,63,BLACK);
 
   display3.drawCircle(45,14,12,WHITE);
   display3.drawCircle(105,32,15,WHITE); // ok
@@ -346,22 +390,23 @@ void Display_Uroven( void ) {
 void Display_GPS( void ) {
 
   gps_count =  gps.satellites.value();
-  
+
   display5.clearDisplay();
 
   display5.cp437(true); // Для русских букв  
   display5.setTextSize(2);
-  display5.setTextColor(WHITE);
   display5.setTextWrap(0);
-  display5.fillRect(0,0,127,63,BLACK);
   display5.setTextColor(WHITE);
   display5.setCursor(0,0);
 
-  if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid()) {
-    display5.println(gps.location.lat(), 6);  // Широта
-    display5.println(gps.location.lng(), 6);  // Долгота      
-    display5.print("COG:"); 
-    display5.println(gps.course.deg());
+  if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid() && (gps.hdop.value()/100.0) < 5.0) {
+    display5.print(F("mHDOP:"));
+    display5.println(mHDOP.value());  
+    display5.print(F("nSat:"));
+    display5.println(gps.satellites.value()); 
+    display5.print("HDOP:"); 
+    display5.println(gps.hdop.value());
+    // smoothingFilter(gps.location.lat(), gps.location.lng(),gps.hdop.value()/100.0));
     display5.print(utf8rus("км/ч:")); 
     display5.print(gps.speed.kmph());
   } 
@@ -420,7 +465,7 @@ String utf8rus(String source)
   String target;
   unsigned char n;
   char m[2] = {
-    '0', '\0'        };
+    '0', '\0'            };
 
   k = source.length(); 
   i = 0;
@@ -510,20 +555,20 @@ void Save_Bar_Data( void ) {
   }
 
   BAR_EEPROM_POS = ( (bmp085_data.unix_time/1800)%96 ) * sizeof(bmp085_data); // Номер ячейки памяти.
-  
+
   unsigned long OLD = BAR_EEPROM_POS;
-  
+
   bmp085_data.Press = Pressure/133.3;
   bmp085_data.Alt   = Altitude/100.0;
   bmp085_data.Temp  = Temperature/10.0;
 
   if (DEBUG) {
-      Serial.println( "Data to Write ");
-      Serial.println( BAR_EEPROM_POS );
-      Serial.println( bmp085_data.Press);
-      Serial.println( bmp085_data.Alt );
-      Serial.println( bmp085_data.Temp );
-      Serial.println( bmp085_data.unix_time );
+    Serial.println( "Data to Write ");
+    Serial.println( BAR_EEPROM_POS );
+    Serial.println( bmp085_data.Press);
+    Serial.println( bmp085_data.Alt );
+    Serial.println( bmp085_data.Temp );
+    Serial.println( bmp085_data.unix_time );
   }
 
   const byte* p = (const byte*)(const void*)&bmp085_data;
@@ -533,17 +578,17 @@ void Save_Bar_Data( void ) {
   if (DEBUG) {
 
     BAR_EEPROM_POS = OLD;
-  
+
     byte* pp = (byte*)(void*)&bmp085_data; 
     for (unsigned int i = 0; i < sizeof(bmp085_data); i++)
       *pp++ = eeprom.readByte(BAR_EEPROM_POS++); 
 
-      Serial.println( "Data to Read");
-      Serial.println( OLD );      
-      Serial.println( bmp085_data.Press);
-      Serial.println( bmp085_data.Alt );
-      Serial.println( bmp085_data.Temp );
-      Serial.println( bmp085_data.unix_time );
+    Serial.println( "Data to Read");
+    Serial.println( OLD );      
+    Serial.println( bmp085_data.Press);
+    Serial.println( bmp085_data.Alt );
+    Serial.println( bmp085_data.Temp );
+    Serial.println( bmp085_data.unix_time );
   }
 
 }
@@ -556,7 +601,7 @@ void ShowBMP085( void ) {
   int H;
 
   display1.clearDisplay();
-  
+
   display1.drawFastVLine(30,0,63, WHITE);
   display1.drawFastHLine(30,63,97, WHITE);
 
@@ -941,9 +986,25 @@ void get_dir_print( int x, int y) {
 
   int z = round(get_compass());
 
-  if (z == 0)       { 
+  if (z == 0) { 
     print_dir('N',x,y);  
   }
+
+  if (z == 90) { 
+    print_dir('E',x,y);  
+  }
+
+  if (z == 180) { 
+    print_dir('S',x,y);  
+  }
+
+  if (z == 270) { 
+    print_dir('W',x,y);  
+  }
+  if (z == 360) { 
+    print_dir('N',x,y);  
+  }
+
 
   if (z > 0 & z < 90)       { 
     print_dir('N',x,y);  
@@ -1045,104 +1106,76 @@ void i2scanner()
 
 // GPS Filter
 
-
-#define _HORISONTAL_ACCURACY_RATIO_LIMIT        5.0
-#define _PSI_CONSTANT                           (0.03239391 / 3600.0)
-
-static const uint32_t HIFunc[91] PROGMEM = {
-    1023702460, 1023703774, 1023707716, 1023714294, 1023723516, 1023735398, 1023749958, 1023767217, 1023787204, 1023809949,
-    1023835487, 1023863860, 1023895112, 1023929294, 1023966461, 1024006674, 1024049998, 1024096508, 1024146280, 1024199401,
-    1024255963, 1024316064, 1024379813, 1024447325, 1024518724, 1024594145, 1024673731, 1024757637, 1024846031, 1024939090,
-    1025037008, 1025139991, 1025248263, 1025362063, 1025481651, 1025607304, 1025739325, 1025878038, 1026023793, 1026176972,
-    1026337985, 1026507280, 1026685341, 1026872697, 1027069921, 1027277640, 1027496540, 1027727371, 1027970954, 1028228194,
-    1028500086, 1028787729, 1029092337, 1029415259, 1029757994, 1030122211, 1030509781, 1030922798, 1031363624, 1031816853,
-    1032069249, 1032340111, 1032631406, 1032945391, 1033284672, 1033652271, 1034051716, 1034487150, 1034963466, 1035486494,
-    1036063227, 1036702134, 1037413566, 1038210307, 1039108342, 1040127918, 1040741229, 1041415612, 1042203499, 1043135839,
-    1044255964, 1045626460, 1047341212, 1049061876, 1050533983, 1052596225, 1055691202, 1058908126, 1064070175, 1072456375,
-1287568416};
-union u32double {
-    uint32_t u;
-    double d;
-};
-
-#define    NOT_RUNNING 0
-#define    BAD_SIGNAL  1
-#define    SIGNAL_LOST  2
-#define    HDOP_EXCEEDED  3
-#define    DATA_REJECTED  4
-#define    DATA_GOOD  5
-#define    LAT_ACCURACY_INCREASED  6
-#define    LON_ACCURACY_INCREASED  7
-#define    ACCEPTED_FIXED  8
-#define    ACCEPTED_UPDATED  9
-
-double _lastLat;
-double _lastLon;
-double _lastLatHACC;
-double _lastLonHACC;
-byte  _filterState = NOT_RUNNING;
-
 byte smoothingFilter(double lat, double lon, double hdop) {
-    u32double conv;
-    if (_filterState == NOT_RUNNING) {
-        _filterState = ACCEPTED_UPDATED;
+  u32double conv;
+  if (_filterState == NOT_RUNNING) {
+    _filterState = ACCEPTED_UPDATED;
+    _lastLat = lat;
+    _lastLon = lon;
+    _lastLatHACC = _PSI_CONSTANT * hdop * _HORISONTAL_ACCURACY_RATIO_LIMIT;
+    uint8_t pos;
+    if (lat < 0) pos = -lat; 
+    else pos = lat;
+    // drive the index value to the given bounds 0..90
+    while (pos > 90) pos -= 90;
+    conv.u = pgm_read_dword_near(HIFunc + pos);
+    _lastLonHACC = conv.d * hdop * _HORISONTAL_ACCURACY_RATIO_LIMIT / 3600;
+  } 
+  else {
+    double deltaLat = fabs(lat - _lastLat);
+    double LatHACC = _PSI_CONSTANT * hdop * _HORISONTAL_ACCURACY_RATIO_LIMIT;
+    if (deltaLat > LatHACC + _lastLatHACC) {
+      // GOOD data
+      _filterState = ACCEPTED_UPDATED;
+      _lastLatHACC = LatHACC;
+      _lastLat = lat;
+      _lastLon = lon;
+    } 
+    else {
+      if (LatHACC < _lastLatHACC) {
+        // GOOD data: accuracy increased
+        _filterState = LAT_ACCURACY_INCREASED;
+        _lastLatHACC = LatHACC;
         _lastLat = lat;
         _lastLon = lon;
-        _lastLatHACC = _PSI_CONSTANT * hdop * _HORISONTAL_ACCURACY_RATIO_LIMIT;
+      } 
+      else {
         uint8_t pos;
-        if (lat < 0) pos = -lat; else pos = lat;
+        if (lat < 0) pos = -lat; 
+        else pos = lat;
         // drive the index value to the given bounds 0..90
         while (pos > 90) pos -= 90;
         conv.u = pgm_read_dword_near(HIFunc + pos);
-        _lastLonHACC = conv.d * hdop * _HORISONTAL_ACCURACY_RATIO_LIMIT / 3600;
-    } else {
-        double deltaLat = fabs(lat - _lastLat);
-        double LatHACC = _PSI_CONSTANT * hdop * _HORISONTAL_ACCURACY_RATIO_LIMIT;
-        if (deltaLat > LatHACC + _lastLatHACC) {
-            // GOOD data
-            _filterState = ACCEPTED_UPDATED;
-            _lastLatHACC = LatHACC;
+        double deltaLon = fabs(lon - _lastLon);
+        double LonHACC = conv.d * hdop * _HORISONTAL_ACCURACY_RATIO_LIMIT / 3600;
+        if (deltaLon > LonHACC + _lastLonHACC) {
+          // GOOD data
+          _filterState = ACCEPTED_UPDATED;
+          _lastLatHACC = LatHACC;
+          _lastLat = lat;
+          _lastLon = lon;
+        } 
+        else {
+          if (LatHACC < _lastLatHACC) {
+            // GOOD data: accuracy increased
+            _filterState = LON_ACCURACY_INCREASED;
+            _lastLonHACC = LonHACC;
             _lastLat = lat;
             _lastLon = lon;
-        } else {
-            if (LatHACC < _lastLatHACC) {
-                // GOOD data: accuracy increased
-                _filterState = LAT_ACCURACY_INCREASED;
-                _lastLatHACC = LatHACC;
-                _lastLat = lat;
-                _lastLon = lon;
-            } else {
-                uint8_t pos;
-                if (lat < 0) pos = -lat; else pos = lat;
-                // drive the index value to the given bounds 0..90
-                while (pos > 90) pos -= 90;
-                conv.u = pgm_read_dword_near(HIFunc + pos);
-                double deltaLon = fabs(lon - _lastLon);
-                double LonHACC = conv.d * hdop * _HORISONTAL_ACCURACY_RATIO_LIMIT / 3600;
-                if (deltaLon > LonHACC + _lastLonHACC) {
-                    // GOOD data
-                    _filterState = ACCEPTED_UPDATED;
-                    _lastLatHACC = LatHACC;
-                    _lastLat = lat;
-                    _lastLon = lon;
-                } else {
-                    if (LatHACC < _lastLatHACC) {
-                        // GOOD data: accuracy increased
-                        _filterState = LON_ACCURACY_INCREASED;
-                        _lastLonHACC = LonHACC;
-                        _lastLat = lat;
-                        _lastLon = lon;
-                    } else {
-                        // BAD data: poor accuracy
-                        _filterState = DATA_REJECTED;
-                    }
-                }
-            }
+          } 
+          else {
+            // BAD data: poor accuracy
+            _filterState = DATA_REJECTED;
+          }
         }
+      }
     }
-    if (_filterState > DATA_GOOD) {
-        // GOOD data
-    }
-    return _filterState;
+  }
+  if (_filterState > DATA_GOOD) {
+    // GOOD data
+  }
+  return _filterState;
 }
+
+
 
