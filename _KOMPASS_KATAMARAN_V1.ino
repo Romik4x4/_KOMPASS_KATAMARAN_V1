@@ -51,6 +51,8 @@ Adafruit_SSD1306 display5(OLED_MOSI, OLED_CLK, A7,23,A6);
 #define LED 23 //  Do not Usage !!!
 #define UTC 3
 
+// ======================= GPS Kalman Filter =================================================================================
+
 #define _HORISONTAL_ACCURACY_RATIO_LIMIT        5.0
 #define _PSI_CONSTANT                           (0.03239391 / 3600.0)
 
@@ -65,6 +67,7 @@ static const uint32_t HIFunc[91] PROGMEM = {
   1036063227, 1036702134, 1037413566, 1038210307, 1039108342, 1040127918, 1040741229, 1041415612, 1042203499, 1043135839,
   1044255964, 1045626460, 1047341212, 1049061876, 1050533983, 1052596225, 1055691202, 1058908126, 1064070175, 1072456375,
   1287568416};
+
 union u32double {
   uint32_t u;
   double d;
@@ -109,12 +112,27 @@ float heading2;
 
 struct config_t
 {
-  long alarm;
-  int mode;
-} 
+  double last_lat,last_lng;
+  unsigned long unix_time;
+  double distance;
+  double tripToday;
+}
 configuration;
+
+double todayDistance = 0.0;
+
+struct lat_lng_struct {
+  double lat,lng;
+};
+
+struct lat_lng_struct coor[2];
+
 // EEPROM_readAnything(0, configuration);
 // EEPROM_writeAnything(0, configuration);
+
+byte cpos = 0; 
+double tripToday = 0.0;
+
 // ----------------------- BMP085 ---------------------------------
 
 struct bmp085_t // Данные о давлении,высоте и температуре
@@ -131,11 +149,10 @@ unsigned long onePreviousInterval = 0;
 unsigned long barPreviousInterval = 0;
 unsigned long compassPreviousInterval = 0;
 unsigned long gpsPreviousInterval = 0;
+unsigned long tripPreviousInterval = 0;
 
 
 TinyGPSPlus gps;  // GPS Serial(1)4800
-
-TinyGPSCustom mHDOP(gps, "GPGGA", 8);
 
 Rtc_Pcf8563 rtc;       // PCF8563
 
@@ -266,6 +283,21 @@ void setup() {
 
   First = true;
 
+
+  // --- Reset configuration in EEEPROM
+  /*
+  configuration.last_lat = 0.0;
+   configuration.last_lng = 0.0;
+   configuration.unix_time = 0;
+   configuration.distance = 0.0;
+   configuration.tripToday = 0.0;
+   
+   EEPROM_writeAnything(0, configuration); // Запись
+   */
+
+  EEPROM_readAnything(0, configuration);  // Чтение
+
+
 }
 
 // ================================ Main =====================================
@@ -273,8 +305,17 @@ void setup() {
 
 void loop() {
 
-
+ if (Serial1.available()) {
+    gps.encode(Serial1.read());
+  }
+  
   currentMillis = millis();
+
+  if ((currentMillis - tripPreviousInterval > FIVE_MINUT/5) || First == true ) {  
+    tripPreviousInterval = currentMillis;   
+    gps_trip();
+  }
+
 
   if ((currentMillis - barPreviousInterval > FIVE_MINUT/2) || First == true ) {  
     barPreviousInterval = currentMillis;   
@@ -297,20 +338,21 @@ void loop() {
 
     Save_Bar_Data();
 
+    configuration.distance = configuration.distance + tripToday;
+    configuration.tripToday = tripToday;  
+
+    EEPROM_writeAnything(0, configuration); // Save последнюю координату + Distance(Km)
+
   }
 
-  if (Serial1.available()) {
-    gps.encode(Serial1.read());
-  }
-
-  if(currentMillis - gpsPreviousInterval > 2000) {  // 1 Секунда = 1000
+  if(currentMillis - gpsPreviousInterval > 2000) {  // 2 Секунда = 2000
     gpsPreviousInterval = currentMillis;        
-    Display_GPS(); 
+    Display_GPS(); // Display 5 - GPS
   }
 
   if(currentMillis - compassPreviousInterval > 500) {  // 1 Секунда = 1000
     compassPreviousInterval = currentMillis;  
-    Display_OLD_Compass();        // Dislay 4   
+    Display_OLD_Compass();     // Dislay 4 Compass  
   }
 
   if(currentMillis - onePreviousInterval > 1000) {  // 1 Секунда = 1000
@@ -319,7 +361,7 @@ void loop() {
     Display_Test();            // Display 1 - Барометр
     Display_Time_SunRise();    // Display 0
     Display_Compass();         // Display 2
-    Display_Uroven();              // Display 3
+    Display_Uroven();          // Display 3
 
   }
 
@@ -352,6 +394,7 @@ void set_GPS_DateTime() {
 
 }
 
+// ---------------------------------- Uroven -----------------------------------
 
 void Display_Uroven( void ) {
 
@@ -385,6 +428,30 @@ void Display_Uroven( void ) {
 
 }
 
+// -------------------------------- GPS TRIP ------------------------------------
+
+void gps_trip( void ) {
+
+  double lat,lng,hdop;
+
+  lat = gps.location.lat();
+  lng = gps.location.lng();
+  hdop = gps.hdop.value()/100.0;
+
+  if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid() && (gps.hdop.value()/100.0) < 5.0) {
+    if (smoothingFilter(lat,lng,hdop) > 4 ) {       
+      coor[cpos].lat = lat;
+      coor[cpos].lng = lng;
+      cpos++;
+      if (cpos > 1) {
+        cpos=0;
+        tripToday = tripToday + gps.distanceBetween(coor[0].lat,coor[0].lng,coor[1].lat,coor[1].lng);
+      }
+    }
+  }
+
+}
+
 // =================================== GPS ==============================
 
 void Display_GPS( void ) {
@@ -400,15 +467,18 @@ void Display_GPS( void ) {
   display5.setCursor(0,0);
 
   if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid() && (gps.hdop.value()/100.0) < 5.0) {
-    display5.print(F("mHDOP:"));
-    display5.println(mHDOP.value());  
+    double gps_speed = gps.speed.kmph();
+
     display5.print(F("nSat:"));
     display5.println(gps.satellites.value()); 
+
     display5.print("HDOP:"); 
     display5.println(gps.hdop.value());
-    // smoothingFilter(gps.location.lat(), gps.location.lng(),gps.hdop.value()/100.0));
+
+    if (smoothingFilter(gps.location.lat(),gps.location.lng(),gps.hdop.value()/100.0) < 5 ) gps_speed = 0.0;
+
     display5.print(utf8rus("км/ч:")); 
-    display5.print(gps.speed.kmph());
+    display5.print(gps_speed);
   } 
   else  {
     display5.println(utf8rus("Поиск"));
@@ -419,6 +489,7 @@ void Display_GPS( void ) {
   } 
 
   display5.display();
+
 
 }
 
@@ -465,7 +536,7 @@ String utf8rus(String source)
   String target;
   unsigned char n;
   char m[2] = {
-    '0', '\0'            };
+    '0', '\0'                  };
 
   k = source.length(); 
   i = 0;
@@ -1176,6 +1247,9 @@ byte smoothingFilter(double lat, double lon, double hdop) {
   }
   return _filterState;
 }
+
+
+
 
 
 
