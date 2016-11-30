@@ -286,7 +286,7 @@ void setup() {
 
   // --- Reset configuration in EEEPROM
   /*
-  configuration.last_lat = 0.0;
+   configuration.last_lat = 0.0;
    configuration.last_lng = 0.0;
    configuration.unix_time = 0;
    configuration.distance = 0.0;
@@ -311,7 +311,7 @@ void loop() {
   
   currentMillis = millis();
 
-  if ((currentMillis - tripPreviousInterval > FIVE_MINUT/5) || First == true ) {  
+  if ((currentMillis - tripPreviousInterval > FIVE_MINUT/5)) {  
     tripPreviousInterval = currentMillis;   
     gps_trip();
   }
@@ -361,13 +361,34 @@ void loop() {
     Display_Test();            // Display 1 - Барометр
     Display_Time_SunRise();    // Display 0
     Display_Compass();         // Display 2
-    Display_Uroven();          // Display 3
+    Display_Trip();            // Display 3 - Trip
+    
+    // Display_Uroven();          // Display 3
 
   }
 
 }
 
 // =============================== Functions ================================
+
+void Display_Trip( void ) {
+
+  display3.clearDisplay();
+  
+  display3.setCursor(0,0);
+  display3.cp437(true); // Для русских букв  
+  display3.setTextSize(2);
+  display3.setTextWrap(0);
+  display3.setTextColor(WHITE);
+  display3.print(utf8rus("Одометр.км"));
+  display3.setTextSize(3);
+  display3.setCursor(0,19);
+  display3.println(tripToday/100.0);
+  display3.setTextSize(2);
+  display3.print(configuration.distance/100.0);
+  display3.display();
+
+}
 
 void set_GPS_DateTime() {
 
@@ -456,6 +477,8 @@ void gps_trip( void ) {
 
 void Display_GPS( void ) {
 
+  double gps_speed;
+  
   gps_count =  gps.satellites.value();
 
   display5.clearDisplay();
@@ -466,19 +489,21 @@ void Display_GPS( void ) {
   display5.setTextColor(WHITE);
   display5.setCursor(0,0);
 
-  if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid() && (gps.hdop.value()/100.0) < 5.0) {
-    double gps_speed = gps.speed.kmph();
-
-    display5.print(F("nSat:"));
-    display5.println(gps.satellites.value()); 
-
-    display5.print("HDOP:"); 
-    display5.println(gps.hdop.value());
+  if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid()) {
+    
+    gps_speed = gps.speed.kmph();
 
     if (smoothingFilter(gps.location.lat(),gps.location.lng(),gps.hdop.value()/100.0) < 5 ) gps_speed = 0.0;
 
-    display5.print(utf8rus("км/ч:")); 
-    display5.print(gps_speed);
+    display5.print(utf8rus("Скорость"));
+    display5.setTextSize(3);
+    display5.setCursor(0,19);    
+    display5.println(gps_speed);    
+    
+    display5.setTextSize(2);
+    display5.print(gps.hdop.value());
+    display5.print(F("/"));
+    display5.print(gps_count);
   } 
   else  {
     display5.println(utf8rus("Поиск"));
