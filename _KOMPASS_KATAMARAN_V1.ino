@@ -51,6 +51,16 @@ Adafruit_SSD1306 display5(OLED_MOSI, OLED_CLK, A7,23,A6);
 #define LED 23 //  Do not Usage !!!
 #define UTC 3
 
+#define TIMECTL_MAXTICS 4294967295L
+#define TIMECTL_INIT          0
+
+unsigned long gpsTimeMark = 0;
+unsigned long gpsTimeInterval = 1000;
+
+unsigned long SetgpsTimeMark     = 0;
+unsigned long SetgpsTimeInterval = 1000*60*10; // 10 Минут
+// Example:  if (isTime(&SetgpsTimeMark,SetgpsTimeInterval))
+
 // ======================= GPS Kalman Filter =================================================================================
 
 #define _HORISONTAL_ACCURACY_RATIO_LIMIT        5.0
@@ -1136,6 +1146,7 @@ void print_dir(char a, int x, int y) {
 
 }
 
+// ----------------------------- draw_line ---------------------------
 
 void draw_line( void ) {
 
@@ -1156,7 +1167,7 @@ void draw_line( void ) {
 
 }
 
-// I2C Scanner
+// ----------------- I2C Scanner
 
 void i2scanner()
 {
@@ -1271,6 +1282,28 @@ byte smoothingFilter(double lat, double lon, double hdop) {
     // GOOD data
   }
   return _filterState;
+}
+
+// ---------------------- isTime Functions --------------------
+
+int isTime(unsigned long *timeMark, unsigned long timeInterval) {
+  unsigned long timeCurrent;
+  unsigned long timeElapsed;
+  int result=false;
+
+  timeCurrent = millis();
+  if (timeCurrent < *timeMark) {
+    timeElapsed=(TIMECTL_MAXTICS-*timeMark) + timeCurrent;
+  } 
+  else {
+    timeElapsed=timeCurrent-*timeMark;
+  }
+
+  if (timeElapsed>=timeInterval) {
+    *timeMark=timeCurrent;
+    result=true;
+  }
+  return(result);
 }
 
 
