@@ -59,6 +59,7 @@ unsigned long gpsTimeInterval = 1000;
 
 unsigned long SetgpsTimeMark     = 0;
 unsigned long SetgpsTimeInterval = 1000*60*10; // 10 Минут
+
 // Example:  if (isTime(&SetgpsTimeMark,SetgpsTimeInterval))
 
 // ======================= GPS Kalman Filter =================================================================================
@@ -1058,19 +1059,24 @@ float Tcompass (void) {
 
 }
 
+// ----------------------------------- OLD Compass --------------------------
+
 void Display_OLD_Compass( void ) {
 
   north  = round(get_compass());
 
   display4.clearDisplay();
 
+  display4.drawFastVLine(0,0,63, WHITE);  // Для уровня
+  display4.drawFastHLine(0,63,60, WHITE); // Для уровня
+  
   display4.drawCircle(96, 32, 30,WHITE);
 
-  get_dir_print(1,10);      // Печать направления
+  get_dir_print(10,10);      // Печать направления
 
   display4.cp437(true);     // Для русских букв 
   display4.setTextSize(2);
-  display4.setCursor(1,35);
+  display4.setCursor(10,35);
   display4.print(round(get_compass())); // Печать азимута   
   display4.print(char(176)); // Печатаем значок градуса
 
@@ -1083,6 +1089,21 @@ void Display_OLD_Compass( void ) {
   yc = 32 -(29 * sin(pc*(3.14/180)));
 
   display4.drawCircle(xc,yc,3,WHITE);
+    
+  Vector normAccel = mpu.readNormalizeAccel();
+
+  int pitch = -(atan2(normAccel.XAxis, sqrt(normAccel.YAxis*normAccel.YAxis + normAccel.ZAxis*normAccel.ZAxis))*180.0)/M_PI;
+  int roll = (atan2(normAccel.YAxis, normAccel.ZAxis)*180.0)/M_PI;
+
+  display4.drawRect(0,26,7,10, WHITE);  // Для уровня Y
+  display4.drawRect(25,56,7,10, WHITE); // Для уровня X
+  
+  display3.fillRect(0,26-pitch,7,10,WHITE); 
+  if (25+roll < 60) {
+   display3.fillRect(25+roll,56,7,10,WHITE);
+  } else {
+    display3.fillRect(60,56,7,10,WHITE);
+  }
 
   display4.display();
 
