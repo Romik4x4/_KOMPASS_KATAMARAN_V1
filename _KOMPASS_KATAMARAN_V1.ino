@@ -898,20 +898,18 @@ void Display_Compass(void) {
   display2.setTextSize(2);
   display2.setTextColor(WHITE);
   display2.setTextWrap(0);
-  display2.fillRect(0,0,127,63,BLACK);
-  display2.setTextColor(WHITE);
   display2.setCursor(0,0);
+  
+  double course = gps.course.deg();
 
   display2.setTextSize(2);
-  display2.println(utf8rus("Компас COG"));
+  display2.println(utf8rus("GPS COG"));
   display2.setTextSize(2);
   display2.println(" ");
-  display2.setTextSize(4);
-  north = round(get_compass());
-  north = getcompasscourse();  // Не то
-  north = round(Tcompass());
-  display2.print(north);
-  display2.println(char(176));  
+  display2.setTextSize(3);
+  display2.print(round(course));
+  display2.print(char(176));  
+  display2.print(gps.cardinal(course));
   display2.display(); 
 
 }
