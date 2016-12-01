@@ -1081,21 +1081,25 @@ float Tcompass (void) {
 
 void Display_OLD_Compass( void ) {
 
-  north  = round(get_compass());
+  double course  = get_compass();
+  int north = round(course);
 
   display4.clearDisplay();
 
   display4.drawFastVLine(0,0,63, WHITE);  // Для уровня
   display4.drawFastHLine(0,63,60, WHITE); // Для уровня
 
-  display4.drawCircle(96, 32, 30,WHITE);
+  display4.drawCircle(96, 32, 28,WHITE);
 
-  get_dir_print(10,10);      // Печать направления
-
-  display4.cp437(true);     // Для русских букв 
+  // get_dir_print(10,10);      // Печать направления
+  
+  display4.cp437(true);      // Для русских букв 
   display4.setTextSize(2);
-  display4.setCursor(10,35);
-  display4.print(round(get_compass())); // Печать азимута   
+  display4.setTextColor(WHITE);
+  display4.setCursor(12,8);  
+  display4.print(gps.cardinal(course));
+  display4.setCursor(12,33);
+  display4.print(north); // Печать азимута   
   display4.print(char(176)); // Печатаем значок градуса
 
   draw_line();
@@ -1103,8 +1107,8 @@ void Display_OLD_Compass( void ) {
   pc = north - 180; 
   if (pc > 360) pc = north - 180;
 
-  xc = 96 - (29 * cos(pc*(3.14/180)));
-  yc = 32 -(29 * sin(pc*(3.14/180)));
+  xc = 96 - (28 * cos(pc*(3.14/180)));
+  yc = 32 -(28 * sin(pc*(3.14/180)));
 
   display4.drawCircle(xc,yc,3,WHITE);
 
@@ -1117,6 +1121,7 @@ void Display_OLD_Compass( void ) {
   display4.drawRect(25,56,7,10, WHITE); // Для уровня X
 
   display3.fillRect(0,26-pitch,7,10,WHITE); 
+  
   if (25+roll < 60) {
     display3.fillRect(25+roll,56,7,10,WHITE);
   } 
@@ -1130,6 +1135,7 @@ void Display_OLD_Compass( void ) {
 
 void get_dir_print( int x, int y) {
 
+  
   int z = round(get_compass());
 
   if (z == 0) { 
@@ -1179,6 +1185,7 @@ void print_dir(char a, int x, int y) {
   display4.setTextSize(2);
   display4.setTextColor(WHITE);
   display4.setCursor(x,y);
+  
   if (a=='N') display4.print(utf8rus("С"));
   if (a=='S') display4.print(utf8rus("Ю")); 
   if (a=='E') display4.print(utf8rus("В"));   
@@ -1194,17 +1201,36 @@ void draw_line( void ) {
 
   pc = -180; 
 
+  // ------------------------------- X -------------------------
+  
   xc = 96 - (29 * cos(r*(3.14/180)));
   yc = 32 - (29 * sin(r*(3.14/180)));
 
   display4.drawLine(96,32,xc,yc,WHITE);
 
   xc = 96 - (29 * cos(pc*(3.14/180)));
-  yc = 32 -(29 * sin(pc*(3.14/180)));
+  yc = 32 - (29 * sin(pc*(3.14/180)));
 
   display4.drawLine(96,32,xc,yc,WHITE);
-  display4.drawCircle(xc,yc, 3,WHITE);
+  
+  display4.drawCircle(xc,yc,3,WHITE);
+  
+  // --------------------- Y --------------------------
+  pc = -270; 
+  
+  xc = 96 - (29 * cos(pc*(3.14/180)));
+  yc = 32 - (29 * sin(pc*(3.14/180)));
 
+  display4.drawLine(96,32,xc,yc,WHITE);
+  
+  pc = 270; 
+  
+  xc = 96 - (29 * cos(pc*(3.14/180)));
+  yc = 32 - (29 * sin(pc*(3.14/180)));
+
+  display4.drawLine(96,32,xc,yc,WHITE);
+
+  
 }
 
 // ----------------- I2C Scanner
