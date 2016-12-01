@@ -537,10 +537,12 @@ void Display_GPS( void ) {
     display5.print(gps_count);
   } 
   else  {
-    display5.println(utf8rus("Поиск"));
-    display5.setTextSize(4);
+    display5.println(utf8rus("Найдено:"));
+    display5.setTextSize(3);
+    display5.setCursor(0,20);
     display5.println(gps_count);
     display5.setTextSize(2);
+    display5.setCursor(0,48);
     display5.println(utf8rus("Спутников"));
   } 
 
