@@ -53,11 +53,25 @@ Adafruit_SSD1306 display5(OLED_MOSI, OLED_CLK, A7,23,A6);
 #define TIMECTL_MAXTICS 4294967295L
 #define TIMECTL_INIT          0
 
-unsigned long gpsTimeMark = 0;
-unsigned long gpsTimeInterval = 1000;
+unsigned long barshowTimeMark = 0;
+unsigned long barshowTimeInterval = 1000*60*2;  // 2 Минуты
 
 unsigned long tripTimeMark     = 0;
-unsigned long tripTimeInterval = 1000*60; // 1 Минутa
+unsigned long tripTimeInterval = 1000*60;       // 1 Минутa
+
+unsigned long savebarTimeMark     = 0;
+unsigned long savebarTimeInterval = 1000*60*15; // 15 Минут
+
+unsigned long compasTimeMark     = 0;
+unsigned long compasTimeInterval = 500;         // 0.5 Минут
+
+unsigned long gpsTimeMark     = 0;
+unsigned long gpsTimeInterval = 2000;           // 2 Секунды
+
+unsigned long mainTimeMark     = 0;
+unsigned long mainTimeInterval = 1000;          // 1 Секунда
+
+
 
 // Example:  if (isTime(&tripTimeMark,tripTimeInterval))
 
@@ -151,14 +165,6 @@ struct bmp085_t // Данные о давлении,высоте и темпер
 
 } 
 bmp085_data;
-
-unsigned long currentMillis;
-unsigned long PreviousInterval = 0;  
-unsigned long onePreviousInterval = 0; 
-unsigned long barPreviousInterval = 0;
-unsigned long compassPreviousInterval = 0;
-unsigned long gpsPreviousInterval = 0;
-
 
 TinyGPSPlus gps;  // GPS Serial(1)4800
 
@@ -318,19 +324,14 @@ void loop() {
     gps.encode(Serial1.read());
   }
 
-  currentMillis = millis();
-
   if (isTime(&tripTimeMark,tripTimeInterval)) gps_trip(); // 1 Минута
   
-
-  if ((currentMillis - barPreviousInterval > FIVE_MINUT/2) || First == true ) {  
-    barPreviousInterval = currentMillis;   
+  if (isTime(&barshowTimeMark,barshowTimeInterval) || First == true ) {  
     ShowBMP085();
     First =  false;
   }
 
-  if(currentMillis - PreviousInterval > (FIVE_MINUT*3) ) {  // 15 Минут Save BAR to EEPROM
-    PreviousInterval = currentMillis;  
+  if (isTime(&savebarTimeMark,savebarTimeInterval)) {  // 15 Минут Save BAR to EEPROM
 
     set_GPS_DateTime();
 
@@ -351,25 +352,17 @@ void loop() {
 
   }
 
-  if(currentMillis - gpsPreviousInterval > 2000) {  // 2 Секунда = 2000
-    gpsPreviousInterval = currentMillis;        
-    Display_GPS(); // Display 5 - GPS
-  }
+  if (isTime(&gpsTimeMark,gpsTimeInterval)) Display_GPS(); // Display 5 - GPS
 
-  if(currentMillis - compassPreviousInterval > 500) {  // 1 Секунда = 1000
-    compassPreviousInterval = currentMillis;  
-    Display_OLD_Compass();     // Dislay 4 Compass  
-  }
 
-  if(currentMillis - onePreviousInterval > 1000) {  // 1 Секунда = 1000
-    onePreviousInterval = currentMillis;  
+  if (isTime(&compasTimeMark,compasTimeInterval)) Display_OLD_Compass(); // Dislay 4 Compass  
+  
 
-    Display_Test();            // Display 1 - Барометр
+  if (isTime(&mainTimeMark,mainTimeInterval)){  // 1 Секунда = 1000
+
     Display_Time_SunRise();    // Display 0
     Display_Compass();         // Display 2
     Display_Trip();            // Display 3 - Trip
-
-      // Display_Uroven();          // Display 3
 
   }
 
@@ -548,45 +541,9 @@ void Display_GPS( void ) {
 
   display5.display();
 
-
 }
-
 
 // ============ Барометер =============================
-
-void Display_Test( void ) {
-
-  /*
-  display1.clearDisplay();
-   
-   display1.cp437(true); // Для русских букв  
-   display1.setTextSize(2);
-   display1.setTextColor(WHITE);
-   display1.setTextWrap(0);
-   display1.fillRect(0,0,127,16,BLACK);
-   display1.setTextColor(WHITE);
-   display1.setCursor(0,0);
-   display1.print(rtc.formatTime());
-   
-   //  display.println(utf8rus("Скорость:"));
-   //  display.print(" ");
-   //  display.println(Pressure/133.3);
-   //  display.setTextColor(WHITE);
-   //  display.setTextSize(4);
-   //  display.println(gps.charsProcessed());
-   //  display.setTextSize(2);
-   //  display.println(utf8rus("км/ч"));
-   //  display.print(rtc.formatTime());
-   //  virtual void drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t color);
-   //  virtual void drawFastHLine(int16_t x, int16_t y, int16_t w, uint16_t color);
-   
-   //  virtual void drawFastVLine(int16_t x, int16_t y, int16_t h, uint16_t color);
-   //  virtual void drawFastHLine(int16_t x, int16_t y, int16_t w, uint16_t color);
-   
-   ShowBMP085();
-   display1.display(); */
-
-}
 
 String utf8rus(String source)
 {
@@ -1092,8 +1049,6 @@ void Display_OLD_Compass( void ) {
   display4.drawFastHLine(0,63,60, WHITE); // Для уровня
 
   display4.drawCircle(96, 32, 28,WHITE);
-
-  // get_dir_print(10,10);      // Печать направления
   
   display4.cp437(true);      // Для русских букв 
   display4.setTextSize(2);
@@ -1132,66 +1087,6 @@ void Display_OLD_Compass( void ) {
   }
 
   display4.display();
-
-}
-
-void get_dir_print( int x, int y) {
-
-  
-  int z = round(get_compass());
-
-  if (z == 0) { 
-    print_dir('N',x,y);  
-  }
-
-  if (z == 90) { 
-    print_dir('E',x,y);  
-  }
-
-  if (z == 180) { 
-    print_dir('S',x,y);  
-  }
-
-  if (z == 270) { 
-    print_dir('W',x,y);  
-  }
-  if (z == 360) { 
-    print_dir('N',x,y);  
-  }
-
-
-  if (z > 0 & z < 90)       { 
-    print_dir('N',x,y);  
-    print_dir('E',x+15,y);  
-  }
-  if (z > 90 & z < 180)   { 
-    print_dir('E',x,y);  
-    print_dir('S',x+15,y);  
-  }
-  if (z > 180 & zc < 270) { 
-    print_dir('S',x,y);  
-    print_dir('W',x+15,y); 
-  }
-  if (z > 270 & z < 360) { 
-    print_dir('W',x,y); 
-    print_dir('N',x+15,y);  
-  }
-
-
-}
-
-void print_dir(char a, int x, int y) {
-
-  display4.cp437(true);
-  display4.fillRect(x,y,34,34,BLACK);
-  display4.setTextSize(2);
-  display4.setTextColor(WHITE);
-  display4.setCursor(x,y);
-  
-  if (a=='N') display4.print(utf8rus("С"));
-  if (a=='S') display4.print(utf8rus("Ю")); 
-  if (a=='E') display4.print(utf8rus("В"));   
-  if (a=='W') display4.print(utf8rus("З"));  
 
 }
 
