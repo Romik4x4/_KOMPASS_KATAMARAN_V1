@@ -471,7 +471,7 @@ void gps_trip( void ) {
         if (cpos > 1) {
           dist = gps.distanceBetween(coor[0].lat,coor[0].lng,coor[1].lat,coor[1].lng);
           if ((dist/1000.0) < 2.5) { // Расстояние не может быть больше 2.5 км за минуту
-            cpos=0;          
+            cpos=1;          
             tripToday = tripToday + dist;
             coor[0].lat = coor[1].lat;
             coor[0].lng = coor[1].lng;
