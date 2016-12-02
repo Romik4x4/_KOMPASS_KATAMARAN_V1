@@ -524,8 +524,10 @@ void Display_GPS( void ) {
     display5.setCursor(0,19);    
     display5.println(gps_speed);    
 
+    double hdop = gps.hdop.value()/100.0;
+    
     display5.setTextSize(2);
-    display5.print(gps.hdop.value());
+    display5.print(hdop);
     display5.print(F("/"));
     display5.print(gps_count);
   } 
