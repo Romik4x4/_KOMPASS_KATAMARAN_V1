@@ -50,30 +50,12 @@ Adafruit_SSD1306 display5(OLED_MOSI, OLED_CLK, A7,23,A6);
 #define LED 23 //  Do not Usage !!!
 #define UTC 3
 
-#define TIMECTL_MAXTICS 4294967295L
-#define TIMECTL_INIT          0
+unsigned long currentMillis;
 
-unsigned long barshowTimeMark = 0;
-unsigned long barshowTimeInterval = 1000*60*2;  // 2 Минуты
-
-unsigned long tripTimeMark     = 0;
-unsigned long tripTimeInterval = 1000*60;       // 1 Минутa
-
-unsigned long savebarTimeMark     = 0;
-unsigned long savebarTimeInterval = 1000*60*15; // 15 Минут
-
-unsigned long compasTimeMark     = 0;
-unsigned long compasTimeInterval = 500;         // 0.5 Минут
-
-unsigned long gpsTimeMark     = 0;
-unsigned long gpsTimeInterval = 2000;           // 2 Секунды
-
-unsigned long mainTimeMark     = 0;
-unsigned long mainTimeInterval = 1000;          // 1 Секунда
-
-
-
-// Example:  if (isTime(&tripTimeMark,tripTimeInterval))
+unsigned long tripInterval = 0;        
+unsigned long barshowInterval = 0;    
+unsigned long barsaveInterval = 0;    
+unsigned long gpsInterval = 0;   
 
 // ======================= GPS Kalman Filter =================================================================================
 
@@ -183,8 +165,6 @@ long Temperature = 0, Pressure = 0, Altitude = 0;
 
 boolean First = true;     // После старта
 boolean gps_First = true; // После запуска ждем первую точку
-
-long gps_count = 0;
 
 // ====================== Setup ================================================
 
@@ -298,18 +278,19 @@ void setup() {
 
 
   // --- Reset configuration in EEEPROM
+
   /*
    configuration.last_lat = 0.0;
    configuration.last_lng = 0.0;
    configuration.unix_time = 0;
    configuration.distance = 0.0;
-   configuration.tripToday = 0.0;
-   */
+   configuration.tripToday = 0.0;   
    
    EEPROM_writeAnything(0, configuration); // Запись
-   
+   */
 
   EEPROM_readAnything(0, configuration);  // Чтение
+
   configuration.tripToday = 0.0;
 
 
@@ -324,14 +305,26 @@ void loop() {
     gps.encode(Serial1.read());
   }
 
-  if (isTime(&tripTimeMark,tripTimeInterval)) gps_trip(); // 1 Минута
-  
-  if (isTime(&barshowTimeMark,barshowTimeInterval) || First == true ) {  
-    ShowBMP085();
-    First =  false;
+
+  currentMillis = millis();
+
+  if(currentMillis - tripInterval > 15000 ) {  // 15 Seconds
+    tripInterval = currentMillis;  
+    gps_trip(); // 15 Seconds
+    if (DEBUG) Serial.println("Trip");
   }
 
-  if (isTime(&savebarTimeMark,savebarTimeInterval)) {  // 15 Минут Save BAR to EEPROM
+  if((currentMillis - barshowInterval > FIVE_MINUT/2) || First == true ) {  // 2 min
+    barshowInterval = currentMillis;  
+    ShowBMP085();
+    First =  false;
+    if (DEBUG) Serial.println("BarShow");
+  }
+
+  if(currentMillis - barsaveInterval > FIVE_MINUT*3) {  // 15 Минут Save BAR to EEPROM
+    barsaveInterval = currentMillis;
+
+    if (DEBUG) Serial.println("SaveBar");
 
     set_GPS_DateTime();
 
@@ -345,24 +338,20 @@ void loop() {
 
     Save_Bar_Data();
 
-    configuration.distance = configuration.distance + tripToday;
-    configuration.tripToday = tripToday;  
-
     EEPROM_writeAnything(0, configuration); // Save последнюю координату + Distance(Km)
 
   }
 
-  if (isTime(&gpsTimeMark,gpsTimeInterval)) Display_GPS(); // Display 5 - GPS
+  if(currentMillis - gpsInterval > 1000) {  // 1 sec
+    gpsInterval = currentMillis;  
 
+    Display_GPS();              // Display 5
+    Display_OLD_Compass();      // Display 4 
+    Display_Time_SunRise();     // Display 0
+    Display_Compass();          // Display 2
+    Display_Trip();             // Display 3 
 
-  if (isTime(&compasTimeMark,compasTimeInterval)) Display_OLD_Compass(); // Dislay 4 Compass  
-  
-
-  if (isTime(&mainTimeMark,mainTimeInterval)){  // 1 Секунда = 1000
-
-    Display_Time_SunRise();    // Display 0
-    Display_Compass();         // Display 2
-    Display_Trip();            // Display 3 - Trip
+    if (DEBUG) Serial.println("GPS");
 
   }
 
@@ -420,7 +409,6 @@ void set_GPS_DateTime() {
 
 void Display_Uroven( void ) {
 
-
   display3.clearDisplay();
 
   Vector normAccel = mpu.readNormalizeAccel();
@@ -456,32 +444,40 @@ void gps_trip( void ) {
 
   double lat,lng,hdop;
   double dist;
+  double speed;
 
-  if (gps_First == false) {
+  hdop = gps.hdop.value()/100.0;
+  speed = gps.speed.kmph();
+  lat = gps.location.lat();
+  lng = gps.location.lng();
 
-    lat = gps.location.lat();
-    lng = gps.location.lng();
-    hdop = gps.hdop.value()/100.0;
+  // --------------- Получили первую точку старта ---------------------------
 
-    if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid() && (gps.hdop.value()/100.0) < 5.0) {
-      if (smoothingFilter(lat,lng,hdop) > 4 ) {       
-        coor[cpos].lat = lat;
-        coor[cpos].lng = lng;
-        cpos++;
-        if (cpos > 1) {
-          dist = gps.distanceBetween(coor[0].lat,coor[0].lng,coor[1].lat,coor[1].lng);
-          if ((dist/1000.0) < 2.5) { // Расстояние не может быть больше 2.5 км за минуту
-            cpos=1;          
-            tripToday = tripToday + dist;
-            coor[0].lat = coor[1].lat;
-            coor[0].lng = coor[1].lng;
-            coor[1].lat = 0.0;
-            coor[1].lng = 0.0;
-          } 
-          else {
-            cpos=1;
-          }
-        }
+  if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid() && hdop < 5.0 && gps_First == true) {
+    coor[0].lat = gps.location.lat();
+    coor[0].lng = gps.location.lng();
+    gps_First = false;    
+  }
+
+  // ------------------- Получаем второую точку ------------------------------
+
+  if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid() && hdop < 5.0 && gps_First == false) {
+    if ((smoothingFilter(lat,lng,hdop) > 4) || speed > 5.0) {
+      coor[1].lat = lat;
+      coor[1].lng = lng;
+      dist = gps.distanceBetween(coor[0].lat,coor[0].lng,coor[1].lat,coor[1].lng);
+      if ((dist/1000.0) < 1.0) { // Расстояние не может быть больше 1 км за 15 секунд      
+        tripToday = tripToday + dist;
+        configuration.distance = configuration.distance + dist;
+        configuration.tripToday = tripToday;  
+        coor[0].lat = coor[1].lat;
+        coor[0].lng = coor[1].lng;
+        coor[1].lat = 0.0;
+        coor[1].lng = 0.0;
+      }  
+      else {
+        coor[1].lat = 0.0;
+        coor[1].lng = 0.0;     
       }
     }
   }
@@ -492,6 +488,9 @@ void gps_trip( void ) {
 void Display_GPS( void ) {
 
   double gps_speed;
+  double hdop;
+  int gps_count;
+  byte filter;
 
   gps_count =  gps.satellites.value();
 
@@ -505,31 +504,28 @@ void Display_GPS( void ) {
 
   if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid()) {
 
+    hdop = gps.hdop.value()/100.0;
+
     gps_speed = gps.speed.kmph();
 
-    if (smoothingFilter(gps.location.lat(),gps.location.lng(),gps.hdop.value()/100.0) < 5 ) { 
-      gps_speed = 0.0;
+    filter = smoothingFilter(gps.location.lat(),gps.location.lng(),hdop);
+
+    if (filter < 5 ) { 
+      if (gps_speed < 5.0) gps_speed = 0.0;
     } 
-    else {
-      if (gps_First == true) {        
-        coor[0].lat = gps.location.lat();
-        coor[0].lng = gps.location.lng();
-        cpos++;
-        gps_First = false;
-      }
-    }
 
     display5.print(utf8rus("Скорость"));
     display5.setTextSize(3);
     display5.setCursor(0,19);    
     display5.println(gps_speed);    
 
-    double hdop = gps.hdop.value()/100.0;
-    
     display5.setTextSize(2);
     display5.print(hdop);
     display5.print(F("/"));
     display5.print(gps_count);
+    display5.print(F("/F:"));
+    display5.print(filter);
+
   } 
   else  {
     display5.println(utf8rus("Найдено:"));
@@ -553,7 +549,7 @@ String utf8rus(String source)
   String target;
   unsigned char n;
   char m[2] = {
-    '0', '\0'                      };
+    '0', '\0'                          };
 
   k = source.length(); 
   i = 0;
@@ -860,7 +856,7 @@ void Display_Compass(void) {
   display2.setTextColor(WHITE);
   display2.setTextWrap(0);
   display2.setCursor(0,0);
-  
+
   double course = gps.course.deg();
 
   display2.setTextSize(2);
@@ -1051,7 +1047,7 @@ void Display_OLD_Compass( void ) {
   display4.drawFastHLine(0,63,60, WHITE); // Для уровня
 
   display4.drawCircle(96, 32, 28,WHITE);
-  
+
   display4.cp437(true);      // Для русских букв 
   display4.setTextSize(2);
   display4.setTextColor(WHITE);
@@ -1080,7 +1076,7 @@ void Display_OLD_Compass( void ) {
   display4.drawRect(25,56,7,10, WHITE); // Для уровня X
 
   display3.fillRect(0,26-pitch,7,10,WHITE); 
-  
+
   if (25+roll < 60) {
     display3.fillRect(25+roll,56,7,10,WHITE);
   } 
@@ -1101,7 +1097,7 @@ void draw_line( void ) {
   pc = -180; 
 
   // ------------------------------- X -------------------------
-  
+
   xc = 96 - (29 * cos(r*(3.14/180)));
   yc = 32 - (29 * sin(r*(3.14/180)));
 
@@ -1111,25 +1107,25 @@ void draw_line( void ) {
   yc = 32 - (29 * sin(pc*(3.14/180)));
 
   display4.drawLine(96,32,xc,yc,WHITE);
-  
+
   display4.drawCircle(xc,yc,3,WHITE);
-  
+
   // --------------------- Y --------------------------
   pc = -270; 
-  
+
   xc = 96 - (29 * cos(pc*(3.14/180)));
   yc = 32 - (29 * sin(pc*(3.14/180)));
 
   display4.drawLine(96,32,xc,yc,WHITE);
-  
+
   pc = 270; 
-  
+
   xc = 96 - (29 * cos(pc*(3.14/180)));
   yc = 32 - (29 * sin(pc*(3.14/180)));
 
   display4.drawLine(96,32,xc,yc,WHITE);
 
-  
+
 }
 
 // ----------------- I2C Scanner
@@ -1248,32 +1244,6 @@ byte smoothingFilter(double lat, double lon, double hdop) {
   }
   return _filterState;
 }
-
-// ---------------------- isTime Functions --------------------
-
-int isTime(unsigned long *timeMark, unsigned long timeInterval) {
-  unsigned long timeCurrent;
-  unsigned long timeElapsed;
-  int result=false;
-
-  timeCurrent = millis();
-  if (timeCurrent < *timeMark) {
-    timeElapsed=(TIMECTL_MAXTICS-*timeMark) + timeCurrent;
-  } 
-  else {
-    timeElapsed=timeCurrent-*timeMark;
-  }
-
-  if (timeElapsed>=timeInterval) {
-    *timeMark=timeCurrent;
-    result=true;
-  }
-  return(result);
-}
-
-
-
-
 
 
 
