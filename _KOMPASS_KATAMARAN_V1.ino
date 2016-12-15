@@ -236,9 +236,9 @@ void setup() {
   // rtc.clearSquareWave();
   //
   // day, weekday, month, century(1=1900, 0=2000), year(0-99)
-  //  rtc.setDate(10, 4, 11, 0, 16);
+  rtc.setDate(10, 4, 11, 0, 16);
   // hr, min, sec
-  //  rtc.setTime(16,14,00);
+  // rtc.setTime(16,14,00);
 
   display0.clearDisplay();
   display0.display();
