@@ -502,9 +502,9 @@ void Display_GPS( void ) {
   display5.setTextColor(WHITE);
   display5.setCursor(0,0);
 
-  if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid()) {
+  hdop = gps.hdop.value()/100.0;
 
-    hdop = gps.hdop.value()/100.0;
+  if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid() && hdop < 5.0) {
 
     gps_speed = gps.speed.kmph();
 
@@ -514,13 +514,14 @@ void Display_GPS( void ) {
       if (gps_speed < 5.0) gps_speed = 0.0;
     } 
 
-    display5.print(utf8rus("Скорость"));
+    display5.print(utf8rus("Скорость:"));
     display5.setTextSize(3);
     display5.setCursor(0,19);    
     display5.println(gps_speed);    
 
     display5.setTextSize(2);
-    display5.print(hdop);
+    display5.print(F("H:"));    
+    display5.print(int(hdop));
     display5.print(F("/"));
     display5.print(gps_count);
     display5.print(F("/F:"));
@@ -534,7 +535,9 @@ void Display_GPS( void ) {
     display5.println(gps_count);
     display5.setTextSize(2);
     display5.setCursor(0,48);
-    display5.println(utf8rus("Спутников"));
+    if (gps_count == 1) display5.println(utf8rus("Спутник  "));
+    if (gps_count > 1 && gps_count < 4) display5.println(utf8rus("Спутникa "));
+    if (gps_count > 3 || gps_count == 0)  display5.println(utf8rus("Спутников"));    
   } 
 
   display5.display();
