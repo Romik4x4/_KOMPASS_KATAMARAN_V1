@@ -489,7 +489,7 @@ void Display_GPS( void ) {
 
   double gps_speed;
   double hdop;
-  int gps_count;
+  byte gps_count;
   byte filter;
 
   gps_count =  gps.satellites.value();
@@ -535,9 +535,10 @@ void Display_GPS( void ) {
     display5.println(gps_count);
     display5.setTextSize(2);
     display5.setCursor(0,48);
+    if (gps_count == 0)  display5.println(utf8rus("Спутников"));    
     if (gps_count == 1) display5.println(utf8rus("Спутник  "));
     if (gps_count > 1 && gps_count < 4) display5.println(utf8rus("Спутникa "));
-    if (gps_count > 3 || gps_count == 0)  display5.println(utf8rus("Спутников"));    
+    if (gps_count > 3 )display5.println(utf8rus("Спутников"));    
   } 
 
   display5.display();
