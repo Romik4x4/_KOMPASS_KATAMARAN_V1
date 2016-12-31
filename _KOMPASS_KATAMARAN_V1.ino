@@ -346,10 +346,10 @@ void loop() {
     gpsInterval = currentMillis;  
 
     Display_GPS();              // Display 5
-    Display_OLD_Compass();      // Display 4 
     Display_Time_SunRise();     // Display 0
     Display_Compass();          // Display 2
     Display_Trip();             // Display 3 
+    Display_OLD_Compass();      // Display 4 
 
     if (DEBUG) Serial.println("GPS");
 
@@ -535,10 +535,25 @@ void Display_GPS( void ) {
     display5.println(gps_count);
     display5.setTextSize(2);
     display5.setCursor(0,48);
-    if (gps_count == 0)  display5.println(utf8rus("Спутников"));    
-    if (gps_count == 1) display5.println(utf8rus("Спутник  "));
-    if (gps_count > 1 && gps_count < 4) display5.println(utf8rus("Спутникa "));
-    if (gps_count > 3 )display5.println(utf8rus("Спутников"));    
+    switch (gps_count) {
+    case 0: 
+      display5.println(utf8rus("Спутников"));
+      break;
+    case 1:
+      display5.println(utf8rus("Спутник  "));
+      break;
+    case 2:
+      display5.println(utf8rus("Спутникa "));
+      break;
+    case 3:
+      display5.println(utf8rus("Спутникa "));
+      break;
+    case 4:
+      display5.println(utf8rus("Спутникa "));
+      break;
+    default:
+      display5.println(utf8rus("Спутников"));
+    }    
   } 
 
   display5.display();
@@ -553,7 +568,7 @@ String utf8rus(String source)
   String target;
   unsigned char n;
   char m[2] = {
-    '0', '\0'                          };
+    '0', '\0'                                  };
 
   k = source.length(); 
   i = 0;
@@ -1062,6 +1077,8 @@ void Display_OLD_Compass( void ) {
   display4.print(char(176)); // Печатаем значок градуса
 
   draw_line();
+  
+  north = round(get_compass());
 
   pc = north - 180; 
   if (pc > 360) pc = north - 180;
@@ -1248,6 +1265,10 @@ byte smoothingFilter(double lat, double lon, double hdop) {
   }
   return _filterState;
 }
+
+
+
+
 
 
 
