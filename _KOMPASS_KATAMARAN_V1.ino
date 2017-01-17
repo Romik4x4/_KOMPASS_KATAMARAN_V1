@@ -349,7 +349,8 @@ void loop() {
     Display_Time_SunRise();     // Display 0
     Display_Compass();          // Display 2
     Display_Trip();             // Display 3 
-    Display_OLD_Compass();      // Display 4 
+    // Display_OLD_Compass();      // Display 4 
+    Display_NEW_Compass();      // Display 4
 
     if (DEBUG) Serial.println("GPS");
 
@@ -568,7 +569,7 @@ String utf8rus(String source)
   String target;
   unsigned char n;
   char m[2] = {
-    '0', '\0'                                  };
+    '0', '\0'                                    };
 
   k = source.length(); 
   i = 0;
@@ -1077,7 +1078,7 @@ void Display_OLD_Compass( void ) {
   display4.print(char(176)); // Печатаем значок градуса
 
   draw_line();
-  
+
   north = round(get_compass());
 
   pc = north - 180; 
@@ -1267,9 +1268,81 @@ byte smoothingFilter(double lat, double lon, double hdop) {
 }
 
 
+// ----------------- New Compass --------------------------
+
+void Display_NEW_Compass() {
+
+  int x,g;
+  int g_left,g_right;
+  
+  g = int(gps.course.deg());
+  
+  display4.clearDisplay();
+   
+  display4.drawFastHLine(0,35,127,WHITE);
+
+  g_right = ((g/10)*10);
+  g_left  = ((g/10)*10);
+
+  for (x=63;x<125;x+=5) {  // На право рисуем
+    display4.drawFastVLine(x,35-10,9,WHITE);
+    draw_text_cog(x,g_right);
+    g_right = g_right+10;
+    if (g_right > 360) g_right=10;
+  }
+
+  for (x=63;x>0;x-=5) { // На лево рисуем
+    display4.drawFastVLine(x,35-10,9,WHITE);    
+    draw_text_cog(x,g_left);
+    g_left = g_left-10;
+    if (g_left < 0) g_left = 350;
+  }
+  
+  // --- Печатаем информацию -----
+  
+    display4.cp437(true);      // Для русских букв 
+    display4.setTextSize(2);
+    display4.setTextColor(WHITE);
+  
+    display4.setCursor(2,45);  
+    display4.print(((g/10)*10));
+    display4.print(char(176));
+
+    display4.fillTriangle(63-8,60,  63,36, 63+8,60,WHITE);
+  
+    display4.display();
+   
+}
 
 
+void draw_text_cog(int x,int g) {
 
+  display4.cp437(true);      // Для русских букв 
+  display4.setTextSize(2);
+  display4.setTextColor(WHITE);
+  
+  if (g==90) { 
+    display4.drawFastVLine(x,35-20,20,WHITE);
+    display4.setCursor(x-3,0);  
+    display4.print("E");
+  }
 
+  if (g==180) {
+    display4.drawFastVLine(x,35-20,20,WHITE);
+    display4.setCursor(x-3,0);  
+    display4.print("S");
+  }
 
+  if (g==270) { 
+    display4.drawFastVLine(x,35-20,20,WHITE);
+    display4.setCursor(x-3,0);  
+    display4.print("W");
+  }
+
+  if (g==0 || g==360) {
+    display4.drawFastVLine(x,35-20,20,WHITE);
+    display4.setCursor(x-3,0);  
+    display4.print("N");
+  }
+}
 
