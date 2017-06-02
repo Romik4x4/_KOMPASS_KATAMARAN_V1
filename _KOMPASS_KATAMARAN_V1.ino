@@ -1,6 +1,6 @@
-// ***************************************
-// Arduino 1.0.6.work @ 31.10.2016 *
-// ***************************************
+// ***********************************************
+// Arduino 1.0.6.work @ 31.10.2016  AtMega 1284P *
+// ***********************************************
 // I2C device found at address 0x1E  ! HMC5883
 // I2C device found at address 0x50  ! EEPROM 24LC512
 // I2C device found at address 0x51  ! PCF8563
@@ -789,8 +789,11 @@ void Display_Time_SunRise(void ) {
 
   int t;
   byte h_rise=0,m_rise=0,h_set=0,m_set=0;
+  double hdop;
+  
+  hdop = gps.hdop.value()/100.0;   
 
-  if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid()) {
+  if (gps.location.isValid() && gps.date.isValid() && gps.time.isValid() && hdop < 2.0) {
 
     Sunrise mySunrise(gps.location.lat(),gps.location.lng(),UTC);
 
