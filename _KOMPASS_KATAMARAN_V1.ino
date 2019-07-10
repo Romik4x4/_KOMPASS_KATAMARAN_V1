@@ -1,5 +1,5 @@
 // ***********************************************
-// Arduino 1.0.6.work @ 31.10.2016  AtMega 1284P *
+// Arduino 1.0.6.work @ 10.07.2019  AtMega 1284P *
 // ***********************************************
 // I2C device found at address 0x1E  ! HMC5883
 // I2C device found at address 0x50  ! EEPROM 24LC512
@@ -278,8 +278,7 @@ void setup() {
 
 
   // --- Reset configuration in EEEPROM
-
-  /*
+   /*
    configuration.last_lat = 0.0;
    configuration.last_lng = 0.0;
    configuration.unix_time = 0;
